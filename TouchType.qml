@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 import "Curriculum.js" as Curriculum
@@ -100,6 +101,9 @@ Item {
   // ---- level select state (two independent tracks) ----------------------
   property string selectedTrack: "finger" // "finger" | "classic"
   property int selectedIndex: 0
+  // Moving the selection with the keyboard scrolls the list to keep the
+  // highlighted level in view.
+  onSelectedIndexChanged: levelFlick.revealSelected()
 
   function trackLevels(track) {
     return track === "finger" ? root.fingerList : root.levelList
@@ -650,21 +654,56 @@ Item {
               }
             }
 
-            // The list takes the space the rest of the menu leaves. In
-            // maximized mode the rows grow with it and the list sits in the
-            // middle of the card instead of hugging the top.
-            Item {
-              id: levelListArea
+            // The list takes the space the rest of the menu leaves and
+            // scrolls when a track has more levels than fit. In maximized
+            // mode the rows grow with it and a short list sits in the middle
+            // of the card instead of hugging the top.
+            Flickable {
+              id: levelFlick
               width: parent.width
               height: Math.max(0, menuColumn.height
                 - headerItem.height - menuHint.height - menuDivider.height
                 - trackTabs.height - Style.spacing.lg * 4)
+              contentWidth: width
+              contentHeight: Math.max(height, levelList.y + levelList.implicitHeight)
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+              flickableDirection: Flickable.VerticalFlick
+              interactive: contentHeight > height
+              // The stock scroll bar only fades in when the pointer reaches
+              // it, so it is drawn explicitly and stays visible whenever the
+              // list has more levels than fit.
+              ScrollBar.vertical: ScrollBar {
+                id: levelScrollBar
+                policy: ScrollBar.AsNeeded
+                implicitWidth: Style.space(10)
+                padding: Style.spacing.xs
+                background: Rectangle { color: "transparent" }
+                contentItem: Rectangle {
+                  implicitWidth: Style.space(6)
+                  radius: width / 2
+                  color: levelScrollBar.pressed ? Color.accent : Util.alpha(Color.foreground, 0.45)
+                  opacity: 0.9
+                  Behavior on color { ColorAnimation { duration: 120 } }
+                }
+              }
+
+              // Keeps the highlighted level visible when the selection moves
+              // by keyboard, which would otherwise walk off the list.
+              function revealSelected() {
+                var item = levelRepeater.itemAt(root.selectedIndex)
+                if (!item) return
+                var top = item.y
+                var bottom = item.y + item.height
+                if (top < contentY) contentY = top
+                else if (bottom > contentY + height) contentY = bottom - height
+              }
 
               Column {
                 id: levelList
-                width: parent.width
+                width: levelFlick.width - (levelFlick.contentHeight > levelFlick.height ? Style.space(14) : 0)
                 spacing: Style.spacing.sm
-                y: root.maximized ? Math.max(0, (levelListArea.height - height) / 2) : 0
+                y: root.maximized ? Math.max(0, (levelFlick.height - implicitHeight) / 2) : 0
 
                 Repeater {
                   id: levelRepeater
@@ -685,7 +724,7 @@ Item {
                   // that a long track overflows the list.
                   height: root.maximized
                     ? Math.max(Style.space(52), Math.min(Style.space(96),
-                        (levelListArea.height - Style.spacing.sm * (levelRepeater.count - 1)) / Math.max(1, levelRepeater.count)))
+                        (levelFlick.height - Style.spacing.sm * (levelRepeater.count - 1)) / Math.max(1, levelRepeater.count)))
                     : Style.space(52)
                   radius: Math.min(root.cornerRadius, 10)
                   color: isSelected ? Util.alpha(Color.accent, 0.14) : "transparent"
