@@ -19,7 +19,17 @@ Item {
   property var keyFingerMap: ({})
   property var fingerColors: ({})
   property string activeFinger: ""
-  property real keySize: Style.space(34)
+  // The key size is derived from the space the keyboard is given, so the
+  // board can grow with the trainer. Every row is 15 key units wide, which
+  // is what the size is derived from. maxKeySize caps how large the keys
+  // are allowed to get.
+  property real maxKeySize: Style.space(34)
+  readonly property real keySize: {
+    var gap = root.keyGap
+    var widthFit = root.width > 0 ? (root.width - gap * 14) / 15 : root.maxKeySize
+    var heightFit = root.height > 0 ? (root.height - gap * 4) / 5 : root.maxKeySize
+    return Math.max(Style.space(16), Math.min(root.maxKeySize, widthFit, heightFit))
+  }
   property real keyGap: Style.spacing.xs
 
   // Shifted symbols map back to their base key; everything else matches the
