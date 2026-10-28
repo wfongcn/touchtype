@@ -683,7 +683,10 @@ Item {
                   implicitWidth: Style.space(6)
                   radius: width / 2
                   color: levelScrollBar.pressed ? Color.accent : Util.alpha(Color.foreground, 0.45)
-                  opacity: 0.9
+                  // Only shown when the list actually has more levels than
+                  // fit: a list that fits needs no scroll bar.
+                  opacity: levelFlick.contentHeight > levelFlick.height ? 0.9 : 0
+                  Behavior on opacity { NumberAnimation { duration: 120 } }
                   Behavior on color { ColorAnimation { duration: 120 } }
                 }
               }
