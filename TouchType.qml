@@ -54,8 +54,12 @@ Item {
   readonly property int cornerRadius: Style.cornerRadius
   property string monoFont: "monospace"
 
-  property int cardWidth: Math.min(Style.space(920), panel.width - Style.gapsOut * 2)
-  property int cardHeight: Math.min(Style.space(640), panel.height - Style.gapsOut * 2)
+  property int cardWidth: root.maximized
+    ? panel.width - Style.gapsOut * 2
+    : Math.min(Style.space(920), panel.width - Style.gapsOut * 2)
+  property int cardHeight: root.maximized
+    ? panel.height - Style.gapsOut * 2
+    : Math.min(Style.space(640), panel.height - Style.gapsOut * 2)
 
   // ---- progress persistence -------------------------------------------
   property string progressPath: Quickshell.env("HOME") + "/.local/state/omarchy/touchtype-progress.json"
@@ -121,6 +125,15 @@ Item {
   function toggleLanguage() {
     root.language = I18n.nextLanguage(root.language)
     root.saveProgress()
+  }
+
+  // ---- view state -------------------------------------------------------
+  // Whether the trainer is drawn full-bleed. This is a view preference, not
+  // training state: it is not persisted and never touches progress.
+  property bool maximized: false
+
+  function toggleMaximized() {
+    root.maximized = !root.maximized
   }
 
   // ---- admin menu state -------------------------------------------------
@@ -474,10 +487,15 @@ Item {
                 root.toggleLanguage()
                 event.accepted = true
               }
+              else if (event.text === "f" || event.text === "F") {
+                root.toggleMaximized()
+                event.accepted = true
+              }
             }
           }
 
           Column {
+            id: menuColumn
             anchors.fill: parent
             spacing: Style.spacing.lg
 
@@ -542,6 +560,17 @@ Item {
                 }
               }
 
+              MaximizeButton {
+                id: maximizeButton
+                anchors.right: languageButton.left
+                anchors.rightMargin: Style.spacing.lg
+                anchors.verticalCenter: parent.verticalCenter
+                maximized: root.maximized
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleMaximized()
+              }
+
               LanguageButton {
                 id: languageButton
                 anchors.right: adminButton.left
@@ -555,7 +584,7 @@ Item {
               Row {
                 id: streakBadge
                 spacing: Style.spacing.xs
-                anchors.right: languageButton.left
+                anchors.right: maximizeButton.left
                 anchors.rightMargin: Style.spacing.lg
                 anchors.verticalCenter: parent.verticalCenter
                 Text { text: "🔥"; font.pixelSize: Style.font.heading }
@@ -570,15 +599,17 @@ Item {
             }
 
             Text {
+              id: menuHint
               text: I18n.t("menu.hint", root.language)
               color: Color.muted
               font.family: root.uiFont
               font.pixelSize: Style.font.bodySmall
             }
 
-            Rectangle { width: parent.width; height: 1; color: Util.alpha(root.foreground, 0.1) }
+            Rectangle { id: menuDivider; width: parent.width; height: 1; color: Util.alpha(root.foreground, 0.1) }
 
             Row {
+              id: trackTabs
               width: parent.width
               spacing: Style.spacing.sm
 
@@ -619,15 +650,28 @@ Item {
               }
             }
 
-            Column {
+            // The list takes the space the rest of the menu leaves. In
+            // maximized mode the rows grow with it and the list sits in the
+            // middle of the card instead of hugging the top.
+            Item {
+              id: levelListArea
               width: parent.width
-              spacing: Style.spacing.sm
+              height: Math.max(0, menuColumn.height
+                - headerItem.height - menuHint.height - menuDivider.height
+                - trackTabs.height - Style.spacing.lg * 4)
 
-              Repeater {
-                model: root.trackLevels(root.selectedTrack)
+              Column {
+                id: levelList
+                width: parent.width
+                spacing: Style.spacing.sm
+                y: root.maximized ? Math.max(0, (levelListArea.height - height) / 2) : 0
 
-                Rectangle {
-                  id: levelRow
+                Repeater {
+                  id: levelRepeater
+                  model: root.trackLevels(root.selectedTrack)
+
+                  Rectangle {
+                    id: levelRow
                   required property var modelData
                   required property int index
                   readonly property bool isSelected: index === root.selectedIndex
@@ -637,7 +681,12 @@ Item {
                   readonly property color fingerColor: finger !== "" ? root.fingerColors[finger] : "transparent"
 
                   width: parent.width
-                  height: Style.space(52)
+                  // Maximized rows grow to use the card, but never so much
+                  // that a long track overflows the list.
+                  height: root.maximized
+                    ? Math.max(Style.space(52), Math.min(Style.space(96),
+                        (levelListArea.height - Style.spacing.sm * (levelRepeater.count - 1)) / Math.max(1, levelRepeater.count)))
+                    : Style.space(52)
                   radius: Math.min(root.cornerRadius, 10)
                   color: isSelected ? Util.alpha(Color.accent, 0.14) : "transparent"
                   border.width: isSelected ? 1 : 0
@@ -664,7 +713,7 @@ Item {
                       text: levelRow.isUnlocked ? String(levelRow.index + 1) : "🔒"
                       color: levelRow.finger !== "" ? levelRow.fingerColor : (levelRow.entry.passed ? Color.accent : root.foreground)
                       font.family: root.uiFont
-                      font.pixelSize: Style.font.heading
+                      font.pixelSize: root.maximized ? Style.font.display : Style.font.heading
                       horizontalAlignment: Text.AlignHCenter
                     }
 
@@ -675,14 +724,14 @@ Item {
                         text: (levelRow.entry.passed ? "✓ " : "") + I18n.t(levelRow.modelData.titleKey, root.language)
                         color: root.foreground
                         font.family: root.uiFont
-                        font.pixelSize: Style.font.body
+                        font.pixelSize: root.maximized ? Style.font.heading : Style.font.body
                         font.bold: true
                       }
                       Text {
                         text: root.levelDescription(levelRow.modelData)
                         color: Color.muted
                         font.family: root.monoFont
-                        font.pixelSize: Style.font.bodySmall
+                        font.pixelSize: root.maximized ? Style.font.body : Style.font.bodySmall
                       }
                     }
 
@@ -695,13 +744,14 @@ Item {
                         text: I18n.t("menu.level.best", root.language, { wpm: levelRow.entry.bestWpm, acc: levelRow.entry.bestAccuracy })
                         color: Color.muted
                         font.family: root.uiFont
-                        font.pixelSize: Style.font.caption
+                        font.pixelSize: root.maximized ? Style.font.bodySmall : Style.font.caption
                         horizontalAlignment: Text.AlignRight
                         anchors.right: parent.right
                       }
                     }
                   }
                 }
+              }
               }
             }
           }
@@ -815,10 +865,12 @@ Item {
           }
 
           Column {
+            id: lessonColumn
             anchors.fill: parent
             spacing: Style.spacing.lg
 
             Item {
+              id: lessonHeader
               width: parent.width
               height: lessonTitle.height
 
@@ -841,8 +893,19 @@ Item {
                 onActivated: root.toggleLanguage()
               }
 
-              Text {
+              MaximizeButton {
+                id: lessonMaximizeButton
                 anchors.right: lessonLanguageButton.left
+                anchors.rightMargin: Style.spacing.lg
+                anchors.verticalCenter: lessonTitle.verticalCenter
+                maximized: root.maximized
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleMaximized()
+              }
+
+              Text {
+                anchors.right: lessonMaximizeButton.left
                 anchors.rightMargin: Style.spacing.lg
                 anchors.verticalCenter: lessonTitle.verticalCenter
                 text: I18n.t("lesson.hint", root.language)
@@ -853,6 +916,7 @@ Item {
             }
 
             Row {
+              id: statsRow
               width: parent.width
               spacing: Style.spacing.xxl
 
@@ -877,6 +941,7 @@ Item {
             }
 
             Rectangle {
+              id: progressBar
               width: parent.width
               height: Style.space(4)
               radius: height / 2
@@ -891,8 +956,9 @@ Item {
             }
 
             Rectangle {
+              id: drillText
               width: parent.width
-              height: Style.space(150)
+              height: root.maximized ? Style.space(300) : Style.space(150)
               radius: Math.min(root.cornerRadius, 10)
               color: Util.alpha(root.foreground, 0.04)
               border.width: 1
@@ -906,15 +972,16 @@ Item {
                 wrapMode: Text.WordWrap
                 verticalAlignment: Text.AlignVCenter
                 font.family: root.monoFont
-                font.pixelSize: Style.font.heading
+                font.pixelSize: root.maximized ? Style.font.display : Style.font.heading
                 lineHeight: 1.5
               }
             }
 
-            Item { width: 1; height: Style.spacing.md }
+            Item { id: lessonSpacer; width: 1; height: Style.spacing.md }
 
             // Finger Gym banner: which finger(s) to use for this drill.
             Row {
+              id: fingerBanner
               anchors.horizontalCenter: parent.horizontalCenter
               spacing: Style.spacing.sm
               visible: root.currentTrack === "finger"
@@ -973,12 +1040,25 @@ Item {
               }
             }
 
-            Keyboard {
-              anchors.horizontalCenter: parent.horizontalCenter
-              nextChar: root.nextChar
-              keyFingerMap: root.currentTrack === "finger" ? root.keyFingerMap : ({})
-              fingerColors: root.fingerColors
-              activeFinger: root.currentTrack === "finger" ? root.currentFinger : ""
+            // The keyboard takes whatever space the rest of the lesson
+            // leaves, so it can grow with the trainer instead of sitting at
+            // a fixed size in the middle of a bigger card.
+            Item {
+              id: keyboardArea
+              width: parent.width
+              height: Math.max(0, lessonColumn.height
+                - lessonHeader.height - statsRow.height - progressBar.height
+                - drillText.height - lessonSpacer.height - fingerBanner.height
+                - Style.spacing.lg * 6)
+
+              Keyboard {
+                anchors.fill: parent
+                maxKeySize: root.maximized ? Style.space(92) : Style.space(34)
+                nextChar: root.nextChar
+                keyFingerMap: root.currentTrack === "finger" ? root.keyFingerMap : ({})
+                fingerColors: root.fingerColors
+                activeFinger: root.currentTrack === "finger" ? root.currentFinger : ""
+              }
             }
           }
         }

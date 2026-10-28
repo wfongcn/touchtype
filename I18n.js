@@ -26,6 +26,8 @@ var catalogs = {
     "app.admin": "⚙ Admin",
     "app.streak": "{n} day streak",
     "app.language.tooltip": "Switch language",
+    "app.maximize": "Maximize",
+    "app.restore": "Restore",
 
     "menu.hint": "Train each finger pair, or run the classic course. Use ←/→ to switch tracks, ↑↓ + Enter, number keys, or click.",
     "menu.track.finger": "🖐 Finger Gym",
@@ -93,6 +95,8 @@ var catalogs = {
     "app.admin": "⚙ 管理",
     "app.streak": "连续练习 {n} 天",
     "app.language.tooltip": "切换语言",
+    "app.maximize": "全屏",
+    "app.restore": "还原",
 
     "menu.hint": "逐个手指训练，或完成经典课程。使用 ←/→ 切换课程，↑↓ + Enter 选择关卡，也可以直接点击。",
     "menu.track.finger": "🖐 手指训练",

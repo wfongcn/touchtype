@@ -77,6 +77,10 @@ The file hot-reloads on save — no restart needed.
 - `L` switches the interface language between English and Simplified Chinese.
   The 🌐 button in the header does the same thing with the mouse. Your choice
   is remembered.
+- `F` maximizes the trainer to fill the screen, or restores the compact
+  layout. The ⛶ button in the header does the same thing with the mouse.
+  Maximized, the on-screen keyboard scales up and the drill text area grows
+  — useful on a big display, where the compact card is mostly empty.
 - `Esc` returns to the previous screen / closes the overlay.
 - Progress is stored at `~/.local/state/omarchy/touchtype-progress.json`.
   Reset anytime by deleting that file, or via the optional menu's
@@ -113,6 +117,8 @@ rm -f ~/.local/state/omarchy/touchtype-progress.json
 | `Curriculum.js` | 10-level classic curriculum + 6-level Finger Gym definitions, finger key maps, drill-text generators. |
 | `ProgressStore.js` | Progress persistence, accuracy/WPM/streak calculators. |
 | `I18n.js` | Translation catalog (English + Simplified Chinese) and key resolution. |
+| `LanguageButton.qml` | Header control that switches the interface language. |
+| `MaximizeButton.qml` | Header control that maximizes/restores the trainer. |
 
 ## License
 
