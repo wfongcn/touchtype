@@ -73,3 +73,39 @@ test("recording an attempt preserves the language preference", () => {
   );
   assert.equal(outcome.progress.settings.language, "zh-CN");
 });
+
+test("a round that runs out of lives is a failure, whatever the hit rate says", () => {
+  const level = { id: "fall-1", passAccuracy: 70, passWpm: 0 };
+  // 70% would clear the bar, but the round ended early with characters still
+  // unresolved, so it is a failed round.
+  const outcome = progress.recordAttempt(
+    progress.defaultProgress(),
+    level,
+    { accuracy: 70, wpm: 0, timeMs: 5000, keyResults: {}, aborted: true }
+  );
+  assert.equal(outcome.attemptPassed, false);
+  assert.equal(outcome.passed, false);
+  assert.equal(outcome.progress.levels["fall-1"].passed, false);
+});
+
+test("a level stays passed when a later round misses the bar", () => {
+  const level = { id: "fall-1", passAccuracy: 80, passWpm: 0 };
+  const passed = progress.recordAttempt(
+    progress.defaultProgress(),
+    level,
+    { accuracy: 100, wpm: 10, timeMs: 5000, keyResults: {} }
+  );
+  assert.equal(passed.attemptPassed, true);
+  assert.equal(passed.passed, true);
+
+  const failed = progress.recordAttempt(
+    passed.progress,
+    level,
+    { accuracy: 0, wpm: 0, timeMs: 5000, keyResults: {} }
+  );
+  // The round failed...
+  assert.equal(failed.attemptPassed, false);
+  // ...but the level stays unlocked.
+  assert.equal(failed.passed, true);
+  assert.equal(failed.progress.levels["fall-1"].passed, true);
+});

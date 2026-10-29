@@ -29,9 +29,10 @@ var catalogs = {
     "app.maximize": "Maximize",
     "app.restore": "Restore",
 
-    "menu.hint": "Train each finger pair, or run the classic course. Use ←/→ to switch tracks, ↑↓ + Enter, number keys, or click.",
+    "menu.hint": "Train each finger pair, run the classic course, or play the falling-letters game. Use ←/→ to switch tracks, ↑↓ + Enter, number keys, or click.",
     "menu.track.finger": "🖐 Finger Gym",
     "menu.track.classic": "⌨ Classic Course",
+    "menu.track.fall": "⬇ Falling Letters",
     "menu.level.best": "Best: {wpm} wpm · {acc}%",
 
     "lesson.hint": "Esc: menu",
@@ -40,6 +41,12 @@ var catalogs = {
     "lesson.accuracy": "🎯 {acc}%",
     "lesson.finger.hint": "{fingers} — press the tinted keys",
     "lesson.finger.legend": "Keys tinted by finger:",
+    "lesson.fall.lives": "Lives {n}",
+    "lesson.fall.hits": "Hit {hits}/{total}",
+    "lesson.fall.hitRate": "Hit rate {rate}%",
+    "lesson.fall.hit": "✓ Hit",
+    "lesson.fall.miss": "✗ Missed",
+    "lesson.fall.wrong": "✗ Wrong key",
 
     "finger.index": "Index fingers",
     "finger.middle": "Middle fingers",
@@ -52,6 +59,10 @@ var catalogs = {
     "results.wpm": "wpm",
     "results.time": "time",
     "results.weakestKeys": "Weakest keys",
+    "results.hits": "characters hit",
+    "results.missed": "missed",
+    "results.hitRateNeed": "hit rate {rate}% · {need}% needed",
+    "results.outOfLives": "ran out of lives · hit rate {rate}% · {need}% needed",
     "results.hint": "Enter: retry{next}   ·   Esc: menu",
     "results.hint.next": "   ·   N: next level",
 
@@ -62,7 +73,7 @@ var catalogs = {
     "admin.confirm.cancel": "Cancel",
     "admin.confirm.reset": "Reset",
 
-    "bar.tooltip": "Touch Type — Finger Gym {fp}/{ft}, Classic {cp}/{ct}, {streak} day streak",
+    "bar.tooltip": "Touch Type — Finger Gym {fp}/{ft}, Classic {cp}/{ct}, Falling {xp}/{xt}, {streak} day streak",
 
     "level.anchors.title": "F & J Anchors",
     "level.anchors.subtitle": "Find home by feel",
@@ -87,7 +98,19 @@ var catalogs = {
     "level.fingerPinky.title": "Pinky Fingers",
     "level.fingerNumbers.title": "Numbers Row",
     "level.fingerNumbers.subtitle": "1–0 across all fingers",
-    "level.fingerPunct.title": "Punctuation"
+    "level.fingerPunct.title": "Punctuation",
+
+    "level.fallAnchors.title": "Anchors",
+    "level.fallHomeRow.title": "Home Row",
+    "level.fallHomeTop.title": "Home & Top Row",
+    "level.fallAlphabet.title": "Full Alphabet",
+    "level.fallDigits.title": "Letters & Digits",
+    "level.fallPunctuation.title": "Punctuation",
+    "level.fallSymbolMix.title": "Symbol Mix",
+    "level.fallShifted.title": "Shifted Symbols",
+    "level.fallCapitals.title": "Capitals",
+    "level.fallEverything.title": "Everything",
+    "level.fall.subtitle": "{count} characters · {seconds}s each"
   },
 
   "zh-CN": {
@@ -98,9 +121,10 @@ var catalogs = {
     "app.maximize": "全屏",
     "app.restore": "还原",
 
-    "menu.hint": "逐个手指训练，或完成经典课程。使用 ←/→ 切换课程，↑↓ + Enter 选择关卡，也可以直接点击。",
+    "menu.hint": "逐个手指训练，完成经典课程，或玩下落字母游戏。使用 ←/→ 切换课程，↑↓ + Enter 选择关卡，也可以直接点击。",
     "menu.track.finger": "🖐 手指训练",
     "menu.track.classic": "⌨ 经典课程",
+    "menu.track.fall": "⬇ 下落字母",
     "menu.level.best": "最佳：{wpm} wpm · {acc}%",
 
     "lesson.hint": "Esc：返回菜单",
@@ -109,6 +133,12 @@ var catalogs = {
     "lesson.accuracy": "🎯 {acc}%",
     "lesson.finger.hint": "{fingers} —— 按下高亮的按键",
     "lesson.finger.legend": "按键按手指着色：",
+    "lesson.fall.lives": "生命 {n}",
+    "lesson.fall.hits": "命中 {hits}/{total}",
+    "lesson.fall.hitRate": "命中率 {rate}%",
+    "lesson.fall.hit": "✓ 命中",
+    "lesson.fall.miss": "✗ 漏掉了",
+    "lesson.fall.wrong": "✗ 按错了",
 
     "finger.index": "食指",
     "finger.middle": "中指",
@@ -121,6 +151,10 @@ var catalogs = {
     "results.wpm": "每分钟字数",
     "results.time": "用时",
     "results.weakestKeys": "最薄弱的按键",
+    "results.hits": "命中字符",
+    "results.missed": "漏掉",
+    "results.hitRateNeed": "命中率 {rate}% · 需要 {need}%",
+    "results.outOfLives": "生命用尽 · 命中率 {rate}% · 需要 {need}%",
     "results.hint": "Enter：重试{next}   ·   Esc：返回菜单",
     "results.hint.next": "   ·   N：下一关",
 
@@ -131,7 +165,7 @@ var catalogs = {
     "admin.confirm.cancel": "取消",
     "admin.confirm.reset": "重置",
 
-    "bar.tooltip": "盲打练习 —— 手指训练 {fp}/{ft}，经典课程 {cp}/{ct}，连续练习 {streak} 天",
+    "bar.tooltip": "盲打练习 —— 手指训练 {fp}/{ft}，经典课程 {cp}/{ct}，下落字母 {xp}/{xt}，连续练习 {streak} 天",
 
     "level.anchors.title": "F 与 J 定位键",
     "level.anchors.subtitle": "凭手感找到基准键",
@@ -156,7 +190,19 @@ var catalogs = {
     "level.fingerPinky.title": "小指",
     "level.fingerNumbers.title": "数字行",
     "level.fingerNumbers.subtitle": "全部手指练习 1–0",
-    "level.fingerPunct.title": "标点符号"
+    "level.fingerPunct.title": "标点符号",
+
+    "level.fallAnchors.title": "定位键",
+    "level.fallHomeRow.title": "主键行",
+    "level.fallHomeTop.title": "主键行与上排",
+    "level.fallAlphabet.title": "全字母",
+    "level.fallDigits.title": "字母与数字",
+    "level.fallPunctuation.title": "标点符号",
+    "level.fallSymbolMix.title": "符号混合",
+    "level.fallShifted.title": "上档符号",
+    "level.fallCapitals.title": "大写字母",
+    "level.fallEverything.title": "全部字符",
+    "level.fall.subtitle": "{count} 个字符 · 每个 {seconds} 秒"
   }
 }
 

@@ -17,6 +17,7 @@ BarWidget {
 
   readonly property var fingerList: Curriculum.fingerLevels()
   readonly property var levelList: Curriculum.levels([])
+  readonly property var fallList: Curriculum.fallLevels()
 
   function countPassed(list) {
     var n = 0
@@ -28,6 +29,7 @@ BarWidget {
   }
   readonly property int fingerPassed: root.countPassed(root.fingerList)
   readonly property int classicPassed: root.countPassed(root.levelList)
+  readonly property int fallPassed: root.countPassed(root.fallList)
   readonly property int streakCount: root.progress.streak.count || 0
   readonly property string displayText: "⌨" + (root.streakCount > 0 ? "  🔥" + root.streakCount : "")
   // The widget follows the same saved preference as the overlay, so the
@@ -55,6 +57,7 @@ BarWidget {
     tooltipText: I18n.t("bar.tooltip", root.language, {
       fp: root.fingerPassed + 1, ft: root.fingerList.length,
       cp: root.classicPassed + 1, ct: root.levelList.length,
+      xp: root.fallPassed + 1, xt: root.fallList.length,
       streak: root.streakCount
     })
     horizontalMargin: 8.5
