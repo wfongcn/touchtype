@@ -14,6 +14,19 @@ whatever Omarchy theme you have active.
   together, easiest first — index → middle → ring → pinky), letters first,
   then a combined numbers-row level and a combined punctuation level. Each
   track unlocks independently.
+- ⬇ Falling Letters game track: the classic learning-machine game.
+  Characters fall from the top of the field, each from its own spot across
+  the width; type their key to knock them out before they reach the bottom,
+  and a character that has fallen halfway lets the next one start. Each
+  level drops a fixed number of characters and falls a little faster than
+  the last, and the levels between them widen the key set
+  (anchors → home row → whole board → digits → punctuation → shifted
+  symbols → capitals). Three lives per level; the round ends when the
+  characters have all fallen or the lives run out, and running out of lives
+  ends the round early as a failure. The results report how many characters
+  were hit, how many were missed and the hit rate against the level's
+  threshold. A letter that is hit explodes with a bang; a wrong key beeps.
+  Closing the trainer abandons a round in progress rather than recording it.
 - 10 progressive classic levels: home row → top row → bottom row → full alphabet →
   numbers/punctuation → mixed drills → timed sentences.
 - Language switch: English and Simplified Chinese, changeable at any time from
@@ -74,6 +87,8 @@ The file hot-reloads on save — no restart needed.
   `Trigger → Touch Type → Open trainer`.
 - Navigate levels with `↑`/`↓` + `Enter`, number keys, or mouse click.
   Switch tracks with `←`/`→` (or `Tab`), or by clicking the track tabs.
+  There are three tracks: Finger Gym, the Classic Course, and Falling
+  Letters.
 - `L` switches the interface language between English and Simplified Chinese.
   The 🌐 button in the header does the same thing with the mouse. Your choice
   is remembered.
@@ -112,9 +127,13 @@ rm -f ~/.local/state/omarchy/touchtype-progress.json
 | `manifest.json` | Plugin manifest (id, kinds, entry points). |
 | `TouchType.qml` | Main overlay: menu/lesson/results screens, state machine, persistence. |
 | `Keyboard.qml` | On-screen QWERTY keyboard visual, theme-derived colors. |
+| `FallField.qml` | Play field of the falling game: the letters, their fall and the blast of a hit. |
+| `SoundEffect.qml` | One synthesised sound effect, written to the runtime directory and played on demand. |
 | `BarWidget.qml` | Compact bar indicator (level + streak). |
 | `Corpus.js` | Word/sentence/punctuation data banks. |
-| `Curriculum.js` | 10-level classic curriculum + 6-level Finger Gym definitions, finger key maps, drill-text generators. |
+| `Curriculum.js` | 10-level classic curriculum + 6-level Finger Gym + 10-level Falling Letters definitions, finger key maps, drill-text generators. |
+| `FallGame.js` | Rules of the Falling Letters game: planned characters, hits, misses, lives, per-key statistics. |
+| `Sounds.js` | The sounds of the falling game, synthesised as WAV files: the blast of a hit and the beep of a wrong key. |
 | `ProgressStore.js` | Progress persistence, accuracy/WPM/streak calculators. |
 | `I18n.js` | Translation catalog (English + Simplified Chinese) and key resolution. |
 | `LanguageButton.qml` | Header control that switches the interface language. |
@@ -129,7 +148,7 @@ MIT — see [LICENSE](LICENSE).
 - Run the test suite with `npm test` (Node's built-in test runner, no
   dependencies). The tests load the plugin's pure JavaScript modules outside
   Quickshell and cover the localization catalog, the curriculum's key
-  definitions, and the progress store.
+  definitions, the falling-letters rules and the progress store.
 - Validated with `qmllint` (only the standard false-positive categories that
   also appear in Omarchy's own first-party plugins, due to the dynamic
   `qs.Commons`/`qs.Ui` import namespace not being statically resolvable).

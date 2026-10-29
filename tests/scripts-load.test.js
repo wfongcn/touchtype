@@ -6,7 +6,9 @@ const { loadScript } = require("./helpers/loadScript.js");
 // against a script that only loads inside Quickshell.
 const scripts = [
   ["Corpus.js", ["wordList"]],
-  ["Curriculum.js", ["levels", "fingerLevels", "buildDrill", "fingerForKey"]],
+  ["Curriculum.js", ["levels", "fingerLevels", "fallLevels", "buildDrill", "fingerForKey"]],
+  ["FallGame.js", ["createSession", "nextLetter", "spawn", "registerHit", "registerMiss", "registerWrong", "isFinished", "ranOutOfLives", "keyResults"]],
+  ["Sounds.js", ["explosionWav", "beepWav"]],
   ["ProgressStore.js", ["defaultProgress", "parse", "toJsonText", "recordAttempt"]],
   ["I18n.js", ["languages", "t", "normalize"]]
 ];

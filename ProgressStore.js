@@ -87,9 +87,13 @@ function computeAccuracy(correct, total) {
 }
 
 // Records one completed session against a level. `result` is
-// { accuracy, wpm, timeMs, keyResults: { char: { hits, misses } } }.
+// { accuracy, wpm, timeMs, keyResults: { char: { hits, misses } } }, plus
+// `aborted: true` for a round the learner abandoned by running out of lives
+// before its characters were resolved (such a round never passes).
 // Returns a NEW progress object (shallow-cloned where mutated) — callers
 // should reassign their bound property to it so QML bindings refresh.
+// `passed` is whether the level has ever been passed (which is what unlocks
+// the next level); `attemptPassed` is whether this round met the bar.
 function recordAttempt(progress, level, result) {
   var next = JSON.parse(JSON.stringify(progress))
 
@@ -99,7 +103,8 @@ function recordAttempt(progress, level, result) {
   entry.bestWpm = Math.max(entry.bestWpm || 0, result.wpm)
   var passesAccuracy = result.accuracy >= level.passAccuracy
   var passesWpm = level.passWpm <= 0 || result.wpm >= level.passWpm
-  if (passesAccuracy && passesWpm) entry.passed = true
+  var attemptPassed = result.aborted !== true && passesAccuracy && passesWpm
+  if (attemptPassed) entry.passed = true
   next.levels[level.id] = entry
 
   for (var key in result.keyResults) {
@@ -119,7 +124,7 @@ function recordAttempt(progress, level, result) {
     next.streak.lastDay = today
   }
 
-  return { progress: next, passed: entry.passed, entry: entry }
+  return { progress: next, passed: entry.passed, attemptPassed: attemptPassed, entry: entry }
 }
 
 // Clears training data — levels, key statistics, streak and totals — while
