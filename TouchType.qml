@@ -7,6 +7,7 @@ import qs.Ui
 import "Curriculum.js" as Curriculum
 import "Corpus.js" as Corpus
 import "ProgressStore.js" as Progress
+import "I18n.js" as I18n
 
 // Touch Type — guided touch-typing trainer overlay.
 //
@@ -24,6 +25,25 @@ Item {
 
   property bool opened: false
   property string screen: "menu"   // "menu" | "lesson" | "results"
+
+  // ---- language --------------------------------------------------------
+  // The active locale. Displayed strings are resolved through the
+  // localization catalog; the drill text and the on-screen keyboard stay
+  // language-neutral because they describe a physical QWERTY board.
+  property string language: I18n.defaultLanguage()
+
+  // Font for localized text. Theme fonts rarely carry Chinese glyphs, so the
+  // Chinese locale resolves a CJK-capable family instead of rendering
+  // empty boxes.
+  readonly property string uiFont: I18n.fontFamily(root.language, Style.font.family)
+
+  // The description shown under a level title: prose when the level has a
+  // translated description, otherwise the language-neutral key hint.
+  function levelDescription(level) {
+    if (!level) return ""
+    if (level.subtitleKey) return I18n.t(level.subtitleKey, root.language)
+    return level.keysHint || ""
+  }
 
   // ---- theme surface -------------------------------------------------
   property color background: Color.popups.background
@@ -64,6 +84,12 @@ Item {
   })
 
   function saveProgress() {
+    // The language preference lives with the rest of the learner's state, so
+    // the bar widget and the overlay always read the same value.
+    var next = JSON.parse(JSON.stringify(root.progress))
+    next.settings = next.settings || {}
+    next.settings.language = root.language
+    root.progress = next
     progressFile.setText(Progress.toJsonText(root.progress))
   }
 
@@ -92,6 +118,11 @@ Item {
     return n
   }
 
+  function toggleLanguage() {
+    root.language = I18n.nextLanguage(root.language)
+    root.saveProgress()
+  }
+
   // ---- admin menu state -------------------------------------------------
   property bool adminOpen: false
   property int adminIndex: 0
@@ -100,8 +131,8 @@ Item {
   readonly property var adminActions: {
     root.progress.unlockAll // reactive: label follows the persisted unlock-all flag
     return [
-      { id: "unlock", label: root.progress.unlockAll ? "Lock all stages" : "Open all stages" },
-      { id: "reset", label: "Reset progress", danger: true }
+      { id: "unlock", label: I18n.t(root.progress.unlockAll ? "admin.lock" : "admin.unlock", root.language) },
+      { id: "reset", label: I18n.t("admin.reset", root.language), danger: true }
     ]
   }
 
@@ -114,7 +145,7 @@ Item {
   }
 
   function resetProgress() {
-    root.progress = Progress.defaultProgress()
+    root.progress = Progress.resetProgress(root.progress)
     root.saveProgress()
     root.resetConfirmOpen = false
     root.adminOpen = false
@@ -148,7 +179,7 @@ Item {
   property var lastResult: null
 
   readonly property var currentLevel: root.currentLevelIndex >= 0 ? root.trackLevels(root.currentTrack)[root.currentLevelIndex] : null
-  readonly property string currentFingerLabel: root.currentFinger !== "" && Curriculum.fingerMeta[root.currentFinger] ? Curriculum.fingerMeta[root.currentFinger].label : ""
+  readonly property string currentFingerLabel: root.currentFinger !== "" && Curriculum.fingerMeta[root.currentFinger] ? I18n.t(Curriculum.fingerMeta[root.currentFinger].labelKey, root.language) : ""
   readonly property color currentFingerColor: root.currentFinger !== "" && Curriculum.fingerMeta[root.currentFinger] ? Curriculum.fingerMeta[root.currentFinger].color : Color.accent
 
   function open(payloadJson) {
@@ -348,8 +379,14 @@ Item {
     watchChanges: false
     atomicWrites: true
     printErrors: false
-    onLoaded: root.progress = Progress.parse(text())
-    onLoadFailed: root.progress = Progress.defaultProgress()
+    onLoaded: {
+      root.progress = Progress.parse(text())
+      root.language = I18n.normalize(root.progress.settings.language)
+    }
+    onLoadFailed: {
+      root.progress = Progress.defaultProgress()
+      root.language = I18n.defaultLanguage()
+    }
   }
 
   PanelWindow {
@@ -433,6 +470,10 @@ Item {
                 if (9 < root.trackLevels(root.selectedTrack).length) root.selectedIndex = 9
                 event.accepted = true
               }
+              else if (event.text === "l" || event.text === "L") {
+                root.toggleLanguage()
+                event.accepted = true
+              }
             }
           }
 
@@ -449,9 +490,9 @@ Item {
                 id: titleText
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Touch Type"
+                text: I18n.t("app.title", root.language)
                 color: root.foreground
-                font.family: Style.font.family
+                font.family: root.uiFont
                 font.pixelSize: Style.font.display
                 font.bold: true
               }
@@ -481,10 +522,10 @@ Item {
 
                 Text {
                   id: adminButtonText
-                  text: "⚙ Admin"
+                  text: I18n.t("app.admin", root.language)
                   anchors.centerIn: parent
                   color: root.foreground
-                  font.family: Style.font.family
+                  font.family: root.uiFont
                   font.pixelSize: Style.font.bodySmall
                   font.bold: true
                 }
@@ -501,17 +542,27 @@ Item {
                 }
               }
 
+              LanguageButton {
+                id: languageButton
+                anchors.right: adminButton.left
+                anchors.rightMargin: Style.spacing.lg
+                anchors.verticalCenter: parent.verticalCenter
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleLanguage()
+              }
+
               Row {
                 id: streakBadge
                 spacing: Style.spacing.xs
-                anchors.right: adminButton.left
+                anchors.right: languageButton.left
                 anchors.rightMargin: Style.spacing.lg
                 anchors.verticalCenter: parent.verticalCenter
                 Text { text: "🔥"; font.pixelSize: Style.font.heading }
                 Text {
-                  text: (root.progress.streak.count || 0) + " day streak"
+                  text: I18n.t("app.streak", root.language, { n: root.progress.streak.count || 0 })
                   color: root.foreground
-                  font.family: Style.font.family
+                  font.family: root.uiFont
                   font.pixelSize: Style.font.body
                   anchors.verticalCenter: parent.verticalCenter
                 }
@@ -519,9 +570,9 @@ Item {
             }
 
             Text {
-              text: "Train each finger pair, or run the classic course. Use ←/→ to switch tracks, ↑↓ + Enter, number keys, or click."
+              text: I18n.t("menu.hint", root.language)
               color: Color.muted
-              font.family: Style.font.family
+              font.family: root.uiFont
               font.pixelSize: Style.font.bodySmall
             }
 
@@ -533,8 +584,8 @@ Item {
 
               Repeater {
                 model: [
-                  { track: "finger", label: "🖐 Finger Gym", count: root.passedCount("finger"), total: root.fingerList.length },
-                  { track: "classic", label: "⌨ Classic Course", count: root.passedCount("classic"), total: root.levelList.length }
+                  { track: "finger", label: I18n.t("menu.track.finger", root.language), count: root.passedCount("finger"), total: root.fingerList.length },
+                  { track: "classic", label: I18n.t("menu.track.classic", root.language), count: root.passedCount("classic"), total: root.levelList.length }
                 ]
 
                 Rectangle {
@@ -553,7 +604,7 @@ Item {
                     anchors.centerIn: parent
                     text: modelData.label + "  " + modelData.count + "/" + modelData.total
                     color: isActive ? Color.accent : root.foreground
-                    font.family: Style.font.family
+                    font.family: root.uiFont
                     font.pixelSize: Style.font.body
                     font.bold: isActive
                   }
@@ -612,7 +663,7 @@ Item {
                       anchors.verticalCenter: parent.verticalCenter
                       text: levelRow.isUnlocked ? String(levelRow.index + 1) : "🔒"
                       color: levelRow.finger !== "" ? levelRow.fingerColor : (levelRow.entry.passed ? Color.accent : root.foreground)
-                      font.family: Style.font.family
+                      font.family: root.uiFont
                       font.pixelSize: Style.font.heading
                       horizontalAlignment: Text.AlignHCenter
                     }
@@ -621,14 +672,14 @@ Item {
                       width: parent.width - Style.space(28) - statsCol.width - Style.spacing.md * 2
                       anchors.verticalCenter: parent.verticalCenter
                       Text {
-                        text: (levelRow.entry.passed ? "✓ " : "") + levelRow.modelData.title
+                        text: (levelRow.entry.passed ? "✓ " : "") + I18n.t(levelRow.modelData.titleKey, root.language)
                         color: root.foreground
-                        font.family: Style.font.family
+                        font.family: root.uiFont
                         font.pixelSize: Style.font.body
                         font.bold: true
                       }
                       Text {
-                        text: levelRow.modelData.subtitle
+                        text: root.levelDescription(levelRow.modelData)
                         color: Color.muted
                         font.family: root.monoFont
                         font.pixelSize: Style.font.bodySmall
@@ -641,9 +692,9 @@ Item {
                       width: Style.space(140)
                       Text {
                         visible: levelRow.entry.attempts > 0
-                        text: "Best: " + levelRow.entry.bestWpm + " wpm · " + levelRow.entry.bestAccuracy + "%"
+                        text: I18n.t("menu.level.best", root.language, { wpm: levelRow.entry.bestWpm, acc: levelRow.entry.bestAccuracy })
                         color: Color.muted
-                        font.family: Style.font.family
+                        font.family: root.uiFont
                         font.pixelSize: Style.font.caption
                         horizontalAlignment: Text.AlignRight
                         anchors.right: parent.right
@@ -720,7 +771,7 @@ Item {
                         text: modelData.label
                         color: isDanger && (isSelected || isHovered) ? Color.urgent
                           : ((isSelected || isHovered) ? Color.accent : root.foreground)
-                        font.family: Style.font.family
+                        font.family: root.uiFont
                         font.pixelSize: Style.font.body
                         font.bold: isSelected || isHovered
                       }
@@ -774,18 +825,29 @@ Item {
               Text {
                 id: lessonTitle
                 anchors.left: parent.left
-                text: root.currentLevel ? ((root.currentTrack === "finger" ? "🖐 " : "") + (root.currentLevelIndex + 1) + ". " + root.currentLevel.title) : ""
+                text: root.currentLevel ? ((root.currentTrack === "finger" ? "🖐 " : "") + (root.currentLevelIndex + 1) + ". " + I18n.t(root.currentLevel.titleKey, root.language)) : ""
                 color: root.foreground
-                font.family: Style.font.family
+                font.family: root.uiFont
                 font.pixelSize: Style.font.heading
                 font.bold: true
               }
-              Text {
+
+              LanguageButton {
+                id: lessonLanguageButton
                 anchors.right: parent.right
                 anchors.verticalCenter: lessonTitle.verticalCenter
-                text: "Esc: menu"
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleLanguage()
+              }
+
+              Text {
+                anchors.right: lessonLanguageButton.left
+                anchors.rightMargin: Style.spacing.lg
+                anchors.verticalCenter: lessonTitle.verticalCenter
+                text: I18n.t("lesson.hint", root.language)
                 color: Color.muted
-                font.family: Style.font.family
+                font.family: root.uiFont
                 font.pixelSize: Style.font.caption
               }
             }
@@ -795,19 +857,19 @@ Item {
               spacing: Style.spacing.xxl
 
               Text {
-                text: "⏱ " + (Math.floor(root.elapsedMs / 1000)) + "s"
+                text: I18n.t("lesson.time", root.language, { s: Math.floor(root.elapsedMs / 1000) })
                 color: Color.muted
                 font.family: root.monoFont
                 font.pixelSize: Style.font.body
               }
               Text {
-                text: "⌨ " + root.liveWpm + " wpm"
+                text: I18n.t("lesson.wpm", root.language, { wpm: root.liveWpm })
                 color: Color.muted
                 font.family: root.monoFont
                 font.pixelSize: Style.font.body
               }
               Text {
-                text: "🎯 " + root.liveAccuracy + "%"
+                text: I18n.t("lesson.accuracy", root.language, { acc: root.liveAccuracy })
                 color: root.currentLevel && root.liveAccuracy >= root.currentLevel.passAccuracy ? Color.accent : Color.urgent
                 font.family: root.monoFont
                 font.pixelSize: Style.font.body
@@ -867,9 +929,9 @@ Item {
               }
               Text {
                 visible: root.currentFinger !== ""
-                text: root.currentFingerLabel + " — press the tinted keys"
+                text: I18n.t("lesson.finger.hint", root.language, { fingers: root.currentFingerLabel })
                 color: root.currentFingerColor
-                font.family: Style.font.family
+                font.family: root.uiFont
                 font.pixelSize: Style.font.bodySmall
                 font.bold: true
                 anchors.verticalCenter: parent.verticalCenter
@@ -877,9 +939,9 @@ Item {
 
               Text {
                 visible: root.currentFinger === ""
-                text: "Keys tinted by finger:"
+                text: I18n.t("lesson.finger.legend", root.language)
                 color: Color.muted
-                font.family: Style.font.family
+                font.family: root.uiFont
                 font.pixelSize: Style.font.bodySmall
                 anchors.verticalCenter: parent.verticalCenter
               }
@@ -903,7 +965,7 @@ Item {
                   Text {
                     text: modelData.abbr
                     color: Color.muted
-                    font.family: Style.font.family
+                    font.family: root.uiFont
                     font.pixelSize: Style.font.caption
                     anchors.verticalCenter: parent.verticalCenter
                   }
@@ -946,9 +1008,9 @@ Item {
 
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
-              text: root.lastResult && root.lastResult.passed ? "✓ Level passed!" : "Keep practicing"
+              text: root.lastResult && root.lastResult.passed ? I18n.t("results.passed", root.language) : I18n.t("results.keepPracticing", root.language)
               color: root.lastResult && root.lastResult.passed ? Color.accent : root.foreground
-              font.family: Style.font.family
+              font.family: root.uiFont
               font.pixelSize: Style.font.displayLarge
               font.bold: true
             }
@@ -960,17 +1022,17 @@ Item {
               Column {
                 spacing: Style.spacing.xs
                 Text { text: root.lastResult ? root.lastResult.accuracy + "%" : ""; color: root.foreground; font.family: root.monoFont; font.pixelSize: Style.font.display; anchors.horizontalCenter: parent.horizontalCenter }
-                Text { text: "accuracy"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
+                Text { text: I18n.t("results.accuracy", root.language); color: Color.muted; font.family: root.uiFont; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
               }
               Column {
                 spacing: Style.spacing.xs
                 Text { text: root.lastResult ? root.lastResult.wpm : ""; color: root.foreground; font.family: root.monoFont; font.pixelSize: Style.font.display; anchors.horizontalCenter: parent.horizontalCenter }
-                Text { text: "wpm"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
+                Text { text: I18n.t("results.wpm", root.language); color: Color.muted; font.family: root.uiFont; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
               }
               Column {
                 spacing: Style.spacing.xs
                 Text { text: root.lastResult ? Math.round(root.lastResult.timeMs / 1000) + "s" : ""; color: root.foreground; font.family: root.monoFont; font.pixelSize: Style.font.display; anchors.horizontalCenter: parent.horizontalCenter }
-                Text { text: "time"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
+                Text { text: I18n.t("results.time", root.language); color: Color.muted; font.family: root.uiFont; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
               }
             }
 
@@ -982,9 +1044,9 @@ Item {
               visible: weakKeysRepeater.count > 0
 
               Text {
-                text: "Weakest keys"
+                text: I18n.t("results.weakestKeys", root.language)
                 color: root.foreground
-                font.family: Style.font.family
+                font.family: root.uiFont
                 font.pixelSize: Style.font.body
                 font.bold: true
               }
@@ -1031,9 +1093,9 @@ Item {
 
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
-              text: "Enter: retry" + (root.nextLevelAvailable() ? "   ·   N: next level" : "") + "   ·   Esc: menu"
+              text: I18n.t("results.hint", root.language, { next: root.nextLevelAvailable() ? I18n.t("results.hint.next", root.language) : "" })
               color: Color.muted
-              font.family: Style.font.family
+              font.family: root.uiFont
               font.pixelSize: Style.font.caption
             }
           }
@@ -1045,9 +1107,9 @@ Item {
         anchors.fill: parent
         opened: root.resetConfirmOpen
         z: 50
-        message: "Reset all progress? Streaks, best scores, and weak-key stats will be cleared."
-        cancelText: "Cancel"
-        confirmText: "Reset"
+        message: I18n.t("admin.confirm.message", root.language)
+        cancelText: I18n.t("admin.confirm.cancel", root.language)
+        confirmText: I18n.t("admin.confirm.reset", root.language)
         background: root.background
         foreground: root.foreground
         scrim: root.scrim
