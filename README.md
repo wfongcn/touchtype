@@ -54,6 +54,35 @@ whatever Omarchy theme you have active.
 - Compact bar-widget indicator (Finger Gym level + Classic level + streak), click to open.
 - Omarchy menu integration: `Trigger → Touch Type → Open trainer / Reset progress`.
 
+## Screenshots
+
+Three tracks, each with its own unlock chain — the Finger Gym, the Classic
+Course and the Falling Letters game:
+
+![Level select](docs/screenshots/01-level-select-en.png)
+
+The Finger Gym tints the keys by finger and tells you which fingers to use:
+
+![Finger Gym lesson](docs/screenshots/03-lesson-finger-gym.png)
+
+Falling Letters drops characters onto the field; type the key to knock them out
+before they land:
+
+![Falling Letters](docs/screenshots/05-falling-letters.png)
+
+The results screen reports the weakest keys as a heatmap:
+
+![Results](docs/screenshots/06-results.png)
+
+Maximize mode (`F` in the level select) fills the screen with a bigger keyboard:
+
+![Maximized](docs/screenshots/07-maximized.png)
+
+The interface speaks English and 简体中文 — press `L` to switch, the choice is
+remembered:
+
+![简体中文界面](docs/screenshots/02-level-select-zh.png)
+
 ## Install
 
 ```bash
