@@ -43,6 +43,10 @@ whatever Omarchy theme you have active.
   shift-key hinting) and marks the F/J home-row bumps. Finger Gym levels
   additionally tint each key by finger (index = blue, middle = green,
   ring = orange, pinky = pink) and show which fingers to use.
+- Maximize mode: `F` (or the ⛶ button) expands the trainer to fill the screen,
+  scaling up the on-screen keyboard and the drill area.
+- Scrollable level list, with the scroll bar hidden while there is nothing to
+  scroll.
 - Live stats while typing: elapsed time, WPM, accuracy.
 - Results screen: pass/fail, accuracy/WPM/time, and a "weakest keys" heatmap
   built from your per-key hit/miss stats.
