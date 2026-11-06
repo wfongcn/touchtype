@@ -7,7 +7,7 @@ const i18n = loadScript("I18n.js");
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
 const locales = plain(i18n.languages()).map((l) => l.id);
-const qmlSources = ["TouchType.qml", "BarWidget.qml", "Keyboard.qml", "LanguageButton.qml"];
+const qmlSources = ["TouchType.qml", "BarWidget.qml", "Keyboard.qml", "LanguageButton.qml", "MaximizeButton.qml"];
 
 // Catalog keys are dotted and namespaced, which is what distinguishes them
 // from the other string literals in the sources.

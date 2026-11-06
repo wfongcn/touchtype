@@ -10,7 +10,8 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 
 const levels = plain(curriculum.levels(corpus.punctuationChars));
 const fingerLevels = plain(curriculum.fingerLevels());
-const allLevels = levels.concat(fingerLevels);
+const fallLevels = plain(curriculum.fallLevels());
+const allLevels = levels.concat(fingerLevels, fallLevels);
 
 const locales = plain(i18n.languages()).map((l) => l.id);
 
@@ -114,5 +115,38 @@ test("levels keep their identifiers, difficulty and unlock order", () => {
   for (const level of allLevels) {
     assert.ok(level.passAccuracy > 0 && level.passAccuracy <= 100);
     assert.ok(level.passWpm >= 0);
+  }
+});
+
+test("the falling levels drop more characters and fall faster as they go", () => {
+  assert.equal(fallLevels.length, 10);
+  for (const level of fallLevels) {
+    assert.ok(level.id.startsWith("fall-"), `${level.id} needs the fall- prefix`);
+    assert.equal(level.mode, "fall");
+    assert.equal(level.lives, 3);
+    assert.ok(level.keys.length > 0);
+    assert.ok(level.count > 0);
+    assert.ok(level.fallMs > 0);
+    assert.ok(level.passWpm === 0);
+  }
+  for (let i = 1; i < fallLevels.length; i++) {
+    const previous = fallLevels[i - 1];
+    const level = fallLevels[i];
+    assert.ok(level.count > previous.count, `${level.id} should drop more characters`);
+    assert.ok(level.fallMs < previous.fallMs, `${level.id} should fall faster`);
+  }
+});
+
+test("the falling levels between them cover the whole board", () => {
+  const covered = new Set(fallLevels.flatMap((l) => l.keys));
+  const expected = [
+    ..."abcdefghijklmnopqrstuvwxyz",
+    ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    ..."0123456789",
+    ",", ".", ";", "'", "/", "-", "=", "[", "]", "\\",
+    "!", "?", ":", "\"", "(", ")", "+", "_"
+  ];
+  for (const ch of expected) {
+    assert.ok(covered.has(ch), `no falling level drops "${ch}"`);
   }
 });

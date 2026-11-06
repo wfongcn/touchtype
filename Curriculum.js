@@ -148,6 +148,99 @@ function fingerLevels() {
   ]
 }
 
+// Falling Letters — the game track. Each level drops a fixed number of
+// characters, one at a time, down the play field, each from its own spot
+// across the width; the learner types the matching key to knock each one
+// out before it reaches the bottom.
+//
+//   id            stable identifier, used as the progress-store key
+//   titleKey      catalog key for the level title
+//   subtitleKey   catalog key for the shared description; the caller fills
+//                 in the character count and the fall time
+//   mode          "fall" — the level is played, not drilled
+//   keys          the characters the level can drop
+//   count         how many characters the level drops
+//   fallMs        how long one character takes to fall, top to bottom
+//   lives         how many characters may reach the bottom
+//   passAccuracy  minimum hit rate (hits ÷ characters dropped) to pass
+//   passWpm       0 — the game is not judged on speed
+//
+// The character counts grow and the fall times shrink from level to level.
+// Most levels widen the key set too; two narrow it on purpose, to drill one
+// group of keys intensively.
+function fallLevels() {
+  var letters = "abcdefghijklmnopqrstuvwxyz".split("")
+  var capitals = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
+  var digits = "0123456789".split("")
+  var punctuation = [",", ".", ";", "'", "/", "-", "=", "[", "]", "\\"]
+  var shifted = ["!", "?", ":", "\"", "(", ")", "+", "_"]
+  var everything = capitals.concat(letters, digits, punctuation, shifted)
+
+  return [
+    {
+      id: "fall-1", track: "fall",
+      titleKey: "level.fallAnchors.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: ["f", "j"], count: 10, fallMs: 5000, lives: 3,
+      passAccuracy: 80, passWpm: 0
+    },
+    {
+      id: "fall-2", track: "fall",
+      titleKey: "level.fallHomeRow.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: "asdfjkl;".split(""), count: 12, fallMs: 4600, lives: 3,
+      passAccuracy: 80, passWpm: 0
+    },
+    {
+      id: "fall-3", track: "fall",
+      titleKey: "level.fallHomeTop.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: "asdfjkl;qwertyuiop".split(""), count: 14, fallMs: 4200, lives: 3,
+      passAccuracy: 80, passWpm: 0
+    },
+    {
+      id: "fall-4", track: "fall",
+      titleKey: "level.fallAlphabet.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: letters, count: 16, fallMs: 3800, lives: 3,
+      passAccuracy: 80, passWpm: 0
+    },
+    {
+      id: "fall-5", track: "fall",
+      titleKey: "level.fallDigits.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: letters.concat(digits), count: 18, fallMs: 3400, lives: 3,
+      passAccuracy: 75, passWpm: 0
+    },
+    {
+      id: "fall-6", track: "fall",
+      titleKey: "level.fallPunctuation.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: letters.concat(digits, punctuation), count: 20, fallMs: 3100, lives: 3,
+      passAccuracy: 75, passWpm: 0
+    },
+    {
+      id: "fall-7", track: "fall",
+      titleKey: "level.fallSymbolMix.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: punctuation.concat(["a", "s", "d", "f"]),
+      count: 22, fallMs: 2800, lives: 3,
+      passAccuracy: 75, passWpm: 0
+    },
+    {
+      id: "fall-8", track: "fall",
+      titleKey: "level.fallShifted.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: shifted.concat(letters), count: 24, fallMs: 2500, lives: 3,
+      passAccuracy: 70, passWpm: 0
+    },
+    {
+      id: "fall-9", track: "fall",
+      titleKey: "level.fallCapitals.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: capitals, count: 26, fallMs: 2200, lives: 3,
+      passAccuracy: 70, passWpm: 0
+    },
+    {
+      id: "fall-10", track: "fall",
+      titleKey: "level.fallEverything.title", subtitleKey: "level.fall.subtitle",
+      mode: "fall", keys: everything, count: 30, fallMs: 2000, lives: 3,
+      passAccuracy: 70, passWpm: 0
+    }
+  ]
+}
+
 // Maps a drill key to its finger id ("index" | "middle" | "ring" | "pinky"
 // | ""). Used to color-code the on-screen keyboard.
 function fingerForKey(ch) {

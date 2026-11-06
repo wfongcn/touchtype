@@ -2,11 +2,14 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 import "Curriculum.js" as Curriculum
 import "Corpus.js" as Corpus
 import "ProgressStore.js" as Progress
+import "FallGame.js" as FallGame
+import "Sounds.js" as Sounds
 import "I18n.js" as I18n
 
 // Touch Type — guided touch-typing trainer overlay.
@@ -38,10 +41,19 @@ Item {
   readonly property string uiFont: I18n.fontFamily(root.language, Style.font.family)
 
   // The description shown under a level title: prose when the level has a
-  // translated description, otherwise the language-neutral key hint.
+  // translated description, otherwise the language-neutral key hint. The
+  // falling levels share one description that states how many characters
+  // they drop and how long each one takes to fall.
   function levelDescription(level) {
     if (!level) return ""
-    if (level.subtitleKey) return I18n.t(level.subtitleKey, root.language)
+    if (level.subtitleKey) {
+      var params = {}
+      if (level.mode === "fall") {
+        params.count = level.count
+        params.seconds = (level.fallMs / 1000).toFixed(1)
+      }
+      return I18n.t(level.subtitleKey, root.language, params)
+    }
     return level.keysHint || ""
   }
 
@@ -54,14 +66,19 @@ Item {
   readonly property int cornerRadius: Style.cornerRadius
   property string monoFont: "monospace"
 
-  property int cardWidth: Math.min(Style.space(920), panel.width - Style.gapsOut * 2)
-  property int cardHeight: Math.min(Style.space(640), panel.height - Style.gapsOut * 2)
+  property int cardWidth: root.maximized
+    ? panel.width - Style.gapsOut * 2
+    : Math.min(Style.space(920), panel.width - Style.gapsOut * 2)
+  property int cardHeight: root.maximized
+    ? panel.height - Style.gapsOut * 2
+    : Math.min(Style.space(640), panel.height - Style.gapsOut * 2)
 
   // ---- progress persistence -------------------------------------------
   property string progressPath: Quickshell.env("HOME") + "/.local/state/omarchy/touchtype-progress.json"
   property var progress: Progress.defaultProgress()
   readonly property var levelList: Curriculum.levels(Corpus.punctuationChars)
   readonly property var fingerList: Curriculum.fingerLevels()
+  readonly property var fallList: Curriculum.fallLevels()
 
   // Board keys shown in Keyboard.qml, mapped to finger ids for zone tinting.
   readonly property var boardKeys: ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=",
@@ -93,19 +110,34 @@ Item {
     progressFile.setText(Progress.toJsonText(root.progress))
   }
 
-  // ---- level select state (two independent tracks) ----------------------
-  property string selectedTrack: "finger" // "finger" | "classic"
+  // ---- level select state (three independent tracks) --------------------
+  property string selectedTrack: "finger" // "finger" | "classic" | "fall"
   property int selectedIndex: 0
+  // The tracks in the order the arrow keys walk through them.
+  readonly property var trackOrder: ["finger", "classic", "fall"]
+  // Moving the selection with the keyboard scrolls the list to keep the
+  // highlighted level in view.
+  onSelectedIndexChanged: levelFlick.revealSelected()
 
   function trackLevels(track) {
-    return track === "finger" ? root.fingerList : root.levelList
+    if (track === "finger") return root.fingerList
+    if (track === "fall") return root.fallList
+    return root.levelList
   }
 
   function switchTrack(track) {
-    if (track !== "finger" && track !== "classic") return
+    if (track !== "finger" && track !== "classic" && track !== "fall") return
     root.selectedTrack = track
     var list = root.trackLevels(track)
     root.selectedIndex = Math.max(0, Math.min(root.selectedIndex, list.length - 1))
+  }
+
+  // Moves to the next (or previous) track, wrapping around at the ends.
+  function cycleTrack(delta) {
+    var index = root.trackOrder.indexOf(root.selectedTrack)
+    if (index === -1) index = 0
+    var next = (index + delta + root.trackOrder.length) % root.trackOrder.length
+    root.switchTrack(root.trackOrder[next])
   }
 
   function passedCount(track) {
@@ -121,6 +153,15 @@ Item {
   function toggleLanguage() {
     root.language = I18n.nextLanguage(root.language)
     root.saveProgress()
+  }
+
+  // ---- view state -------------------------------------------------------
+  // Whether the trainer is drawn full-bleed. This is a view preference, not
+  // training state: it is not persisted and never touches progress.
+  property bool maximized: false
+
+  function toggleMaximized() {
+    root.maximized = !root.maximized
   }
 
   // ---- admin menu state -------------------------------------------------
@@ -175,6 +216,41 @@ Item {
   property double liveNow: Date.now()
   property int renderTick: 0
 
+  // ---- falling letters game -------------------------------------------
+  // The rules live in FallGame.js; this is the state of the round that is
+  // currently being played. `fallSession` is replaced (never mutated) on
+  // every hit, miss or wrong key, so the bindings below refresh.
+  property var fallSession: null
+  // The letters on the field belong to FallField.qml; this track only holds
+  // the rules of the round and the feedback shown above the field.
+  property string fallFlash: ""    // feedback after a hit, a miss or a wrong key
+  property bool fallFlashGood: false // true when the feedback is good news
+
+  readonly property int fallHits: root.fallSession ? root.fallSession.hits : 0
+  readonly property int fallTotal: root.fallSession ? root.fallSession.total : 0
+  readonly property int fallLives: root.fallSession ? root.fallSession.lives : 0
+  readonly property double fallHitRate: root.fallSession ? Math.round(FallGame.hitRate(root.fallSession) * 1000) / 10 : 0
+
+  // ---- sounds -----------------------------------------------------------
+  // The blast of a letter that was hit and the beep of a wrong key are
+  // synthesised in Sounds.js and written to the runtime directory, so the
+  // plugin carries no audio files of its own.
+  readonly property string soundDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/touchtype-sounds"
+
+  SoundEffect {
+    id: explosionSound
+    filePath: root.soundDir + "/explosion.wav"
+    payload: Sounds.explosionWav()
+    volume: 0.55
+  }
+
+  SoundEffect {
+    id: beepSound
+    filePath: root.soundDir + "/beep.wav"
+    payload: Sounds.beepWav()
+    volume: 0.4
+  }
+
   // ---- last result (for the results screen) ---------------------------
   property var lastResult: null
 
@@ -183,6 +259,7 @@ Item {
   readonly property color currentFingerColor: root.currentFinger !== "" && Curriculum.fingerMeta[root.currentFinger] ? Curriculum.fingerMeta[root.currentFinger].color : Color.accent
 
   function open(payloadJson) {
+    root.abandonFallGame()
     root.opened = true
     root.screen = "menu"
     root.selectedIndex = 0
@@ -193,11 +270,15 @@ Item {
     Qt.callLater(function() { menuKeyCatcher.forceActiveFocus() })
   }
 
+  // Closing the trainer abandons a falling round: a round the learner walks
+  // away from is not recorded.
   function close() {
+    root.abandonFallGame()
     root.opened = false
   }
 
   function dismiss() {
+    root.abandonFallGame()
     root.opened = false
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide((root.manifest && root.manifest.id) || "touchtype")
@@ -222,6 +303,10 @@ Item {
   }
 
   function startLevel(track, index) {
+    if (track === "fall") {
+      root.startFallLevel(index)
+      return
+    }
     var list = root.trackLevels(track)
     if (index < 0 || index >= list.length || !root.unlocked(track, index)) return
     var level = list[index]
@@ -245,8 +330,162 @@ Item {
   }
 
   function backToMenu() {
+    root.stopFallGame()
+    root.fallSession = null
     root.screen = "menu"
     Qt.callLater(function() { menuKeyCatcher.forceActiveFocus() })
+  }
+
+  // ---- falling letters --------------------------------------------------
+  // Starts a round: the level drops a fixed number of characters, and the
+  // learner types the matching key to knock each one out before it reaches
+  // the bottom. A letter that has fallen halfway lets the next one start,
+  // so the field is never empty for long.
+  function startFallLevel(index) {
+    var list = root.fallList
+    if (index < 0 || index >= list.length || !root.unlocked("fall", index)) return
+    root.currentTrack = "fall"
+    root.currentFinger = ""
+    root.currentLevelIndex = index
+    // A round always starts from an empty field, whatever the last one left
+    // behind.
+    root.stopFallGame()
+    root.fallSession = FallGame.createSession(list[index], Math.random)
+    root.fallFlash = ""
+    root.sessionStart = 0
+    root.sessionStarted = false
+    root.screen = "game"
+    Qt.callLater(function() { gameKeyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { root.spawnFallLetter() })
+  }
+
+  // Stops a running round, whether it is finished or abandoned.
+  function stopFallGame() {
+    fallNextTimer.stop()
+    fallFlashTimer.stop()
+    liveTimer.stop()
+    fallField.clear()
+  }
+
+  // Abandons a round in progress: a round the learner walks away from is not
+  // recorded.
+  function abandonFallGame() {
+    if (root.screen !== "game") return
+    root.stopFallGame()
+    root.fallSession = null
+    root.fallFlash = ""
+    root.screen = "menu"
+  }
+
+  // Puts the next planned character of the level on its way down.
+  function spawnFallLetter() {
+    if (!root.fallSession || FallGame.isFinished(root.fallSession)) {
+      root.finishFallSession()
+      return
+    }
+    var next = FallGame.nextLetter(root.fallSession)
+    // Nothing left to drop: the round ends when the last letter that is
+    // still falling has been hit or lost.
+    if (!next) return
+    if (!root.sessionStarted) {
+      root.sessionStarted = true
+      root.sessionStart = Date.now()
+      liveTimer.start()
+    }
+    root.fallSession = FallGame.spawn(root.fallSession)
+    fallField.spawn(next.index, next.char, next.x)
+  }
+
+  // A letter has fallen halfway: the next one starts falling right away, so
+  // the field keeps moving even when the learner is slow.
+  function handleFallMidpoint(planIndex) {
+    root.spawnFallLetter()
+  }
+
+  // The field is empty again after a hit or a loss: start the next character
+  // after a short pause. While a letter is still falling, its own halfway
+  // mark starts the next one, so no timer is needed.
+  function scheduleNextFallLetter() {
+    if (!root.fallSession || FallGame.isFinished(root.fallSession)) return
+    if (FallGame.fallingLetters(root.fallSession).length > 0) return
+    fallNextTimer.restart()
+  }
+
+  // The hit/miss/wrong-key feedback is short: it disappears on its own.
+  function flashFeedback(key, good) {
+    root.fallFlash = I18n.t(key, root.language)
+    root.fallFlashGood = good
+    fallFlashTimer.restart()
+  }
+
+  // A key was pressed while letters were falling. The matching key knocks
+  // out the letter that carries it; anything else is recorded against the
+  // character that was expected and beeps.
+  function handleFallKey(ch) {
+    if (!root.fallSession) return
+    var letter = FallGame.findFalling(root.fallSession, ch)
+    if (!letter) {
+      root.fallSession = FallGame.registerWrong(root.fallSession, FallGame.expectedChar(root.fallSession))
+      root.flashFeedback("lesson.fall.wrong", false)
+      root.renderTick++
+      beepSound.play()
+      return
+    }
+    root.fallSession = FallGame.registerHit(root.fallSession, ch)
+    if (fallField.knockOut(letter.index)) explosionSound.play()
+    root.flashFeedback("lesson.fall.hit", true)
+    root.renderTick++
+    root.scheduleNextFallLetter()
+    if (FallGame.isFinished(root.fallSession)) root.finishFallSession()
+  }
+
+  // A letter reached the bottom: it costs a life.
+  function handleFallLanded(planIndex) {
+    if (!root.fallSession) return
+    root.fallSession = FallGame.registerMiss(root.fallSession, planIndex)
+    root.flashFeedback("lesson.fall.miss", false)
+    root.renderTick++
+    root.scheduleNextFallLetter()
+    if (FallGame.isFinished(root.fallSession)) root.finishFallSession()
+  }
+
+  // The round is over: report it the same way a drill is reported.
+  function finishFallSession() {
+    // The round is reported once, even when the last letter and the
+    // halfway timer of another letter finish at the same moment.
+    if (root.screen !== "game") return
+    root.stopFallGame()
+    var session = root.fallSession
+    if (!session) return
+    root.fallSession = null
+    var elapsedMs = Math.max(1, Date.now() - root.sessionStart)
+    var accuracy = Math.round(FallGame.hitRate(session) * 1000) / 10
+    var wpm = Progress.computeWpm(session.hits, elapsedMs)
+    var result = {
+      accuracy: accuracy,
+      wpm: wpm,
+      timeMs: elapsedMs,
+      keyResults: FallGame.keyResults(session),
+      // Running out of lives ends the round early, and an early end is a
+      // failed round however high the hit rate is.
+      aborted: FallGame.ranOutOfLives(session)
+    }
+    var outcome = Progress.recordAttempt(root.progress, root.currentLevel, result)
+    root.progress = outcome.progress
+    root.saveProgress()
+    root.lastResult = {
+      accuracy: accuracy,
+      wpm: wpm,
+      timeMs: elapsedMs,
+      passed: outcome.attemptPassed,
+      aborted: result.aborted,
+      hits: session.hits,
+      total: session.total,
+      missed: session.missed,
+      track: "fall"
+    }
+    root.screen = "results"
+    Qt.callLater(function() { resultsKeyCatcher.forceActiveFocus() })
   }
 
   function recordKeyResult(expected, correct) {
@@ -373,6 +612,24 @@ Item {
     onTriggered: root.liveNow = Date.now()
   }
 
+  // The pause between one character falling and the next one starting.
+  Timer {
+    id: fallNextTimer
+    interval: 350
+    repeat: false
+    onTriggered: {
+      if (!root.fallSession || FallGame.isFinished(root.fallSession)) root.finishFallSession()
+      else root.spawnFallLetter()
+    }
+  }
+
+  // The hit/miss/wrong-key feedback is short: it disappears on its own.
+  Timer {
+    id: fallFlashTimer
+    interval: 1200
+    onTriggered: root.fallFlash = ""
+  }
+
   FileView {
     id: progressFile
     path: root.progressPath
@@ -454,10 +711,8 @@ Item {
                 return
               }
               if (event.key === Qt.Key_Escape) { root.dismiss(); event.accepted = true }
-              else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right || event.key === Qt.Key_Tab) {
-                root.switchTrack(root.selectedTrack === "finger" ? "classic" : "finger")
-                event.accepted = true
-              }
+              else if (event.key === Qt.Key_Left) { root.cycleTrack(-1); event.accepted = true }
+              else if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) { root.cycleTrack(1); event.accepted = true }
               else if (event.key === Qt.Key_Up) { root.selectedIndex = Math.max(0, root.selectedIndex - 1); event.accepted = true }
               else if (event.key === Qt.Key_Down) { root.selectedIndex = Math.min(root.trackLevels(root.selectedTrack).length - 1, root.selectedIndex + 1); event.accepted = true }
               else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { root.startLevel(root.selectedTrack, root.selectedIndex); event.accepted = true }
@@ -474,10 +729,15 @@ Item {
                 root.toggleLanguage()
                 event.accepted = true
               }
+              else if (event.text === "f" || event.text === "F") {
+                root.toggleMaximized()
+                event.accepted = true
+              }
             }
           }
 
           Column {
+            id: menuColumn
             anchors.fill: parent
             spacing: Style.spacing.lg
 
@@ -542,6 +802,17 @@ Item {
                 }
               }
 
+              MaximizeButton {
+                id: maximizeButton
+                anchors.right: languageButton.left
+                anchors.rightMargin: Style.spacing.lg
+                anchors.verticalCenter: parent.verticalCenter
+                maximized: root.maximized
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleMaximized()
+              }
+
               LanguageButton {
                 id: languageButton
                 anchors.right: adminButton.left
@@ -555,7 +826,7 @@ Item {
               Row {
                 id: streakBadge
                 spacing: Style.spacing.xs
-                anchors.right: languageButton.left
+                anchors.right: maximizeButton.left
                 anchors.rightMargin: Style.spacing.lg
                 anchors.verticalCenter: parent.verticalCenter
                 Text { text: "🔥"; font.pixelSize: Style.font.heading }
@@ -570,22 +841,25 @@ Item {
             }
 
             Text {
+              id: menuHint
               text: I18n.t("menu.hint", root.language)
               color: Color.muted
               font.family: root.uiFont
               font.pixelSize: Style.font.bodySmall
             }
 
-            Rectangle { width: parent.width; height: 1; color: Util.alpha(root.foreground, 0.1) }
+            Rectangle { id: menuDivider; width: parent.width; height: 1; color: Util.alpha(root.foreground, 0.1) }
 
             Row {
+              id: trackTabs
               width: parent.width
               spacing: Style.spacing.sm
 
               Repeater {
                 model: [
                   { track: "finger", label: I18n.t("menu.track.finger", root.language), count: root.passedCount("finger"), total: root.fingerList.length },
-                  { track: "classic", label: I18n.t("menu.track.classic", root.language), count: root.passedCount("classic"), total: root.levelList.length }
+                  { track: "classic", label: I18n.t("menu.track.classic", root.language), count: root.passedCount("classic"), total: root.levelList.length },
+                  { track: "fall", label: I18n.t("menu.track.fall", root.language), count: root.passedCount("fall"), total: root.fallList.length }
                 ]
 
                 Rectangle {
@@ -593,7 +867,7 @@ Item {
                   required property int index
                   readonly property bool isActive: modelData.track === root.selectedTrack
 
-                  width: (parent.width - Style.spacing.sm) / 2
+                  width: (parent.width - Style.spacing.sm * 2) / 3
                   height: Style.space(38)
                   radius: Math.min(root.cornerRadius, 8)
                   color: isActive ? Util.alpha(Color.accent, 0.14) : Util.alpha(root.foreground, 0.04)
@@ -619,15 +893,66 @@ Item {
               }
             }
 
-            Column {
+            // The list takes the space the rest of the menu leaves and
+            // scrolls when a track has more levels than fit. In maximized
+            // mode the rows grow with it and a short list sits in the middle
+            // of the card instead of hugging the top.
+            Flickable {
+              id: levelFlick
               width: parent.width
-              spacing: Style.spacing.sm
+              height: Math.max(0, menuColumn.height
+                - headerItem.height - menuHint.height - menuDivider.height
+                - trackTabs.height - Style.spacing.lg * 4)
+              contentWidth: width
+              contentHeight: Math.max(height, levelList.y + levelList.implicitHeight)
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+              flickableDirection: Flickable.VerticalFlick
+              interactive: contentHeight > height
+              // The stock scroll bar only fades in when the pointer reaches
+              // it, so it is drawn explicitly and stays visible whenever the
+              // list has more levels than fit.
+              ScrollBar.vertical: ScrollBar {
+                id: levelScrollBar
+                policy: ScrollBar.AsNeeded
+                implicitWidth: Style.space(10)
+                padding: Style.spacing.xs
+                background: Rectangle { color: "transparent" }
+                contentItem: Rectangle {
+                  implicitWidth: Style.space(6)
+                  radius: width / 2
+                  color: levelScrollBar.pressed ? Color.accent : Util.alpha(Color.foreground, 0.45)
+                  // Only shown when the list actually has more levels than
+                  // fit: a list that fits needs no scroll bar.
+                  opacity: levelFlick.contentHeight > levelFlick.height ? 0.9 : 0
+                  Behavior on opacity { NumberAnimation { duration: 120 } }
+                  Behavior on color { ColorAnimation { duration: 120 } }
+                }
+              }
 
-              Repeater {
-                model: root.trackLevels(root.selectedTrack)
+              // Keeps the highlighted level visible when the selection moves
+              // by keyboard, which would otherwise walk off the list.
+              function revealSelected() {
+                var item = levelRepeater.itemAt(root.selectedIndex)
+                if (!item) return
+                var top = item.y
+                var bottom = item.y + item.height
+                if (top < contentY) contentY = top
+                else if (bottom > contentY + height) contentY = bottom - height
+              }
 
-                Rectangle {
-                  id: levelRow
+              Column {
+                id: levelList
+                width: levelFlick.width - (levelFlick.contentHeight > levelFlick.height ? Style.space(14) : 0)
+                spacing: Style.spacing.sm
+                y: root.maximized ? Math.max(0, (levelFlick.height - implicitHeight) / 2) : 0
+
+                Repeater {
+                  id: levelRepeater
+                  model: root.trackLevels(root.selectedTrack)
+
+                  Rectangle {
+                    id: levelRow
                   required property var modelData
                   required property int index
                   readonly property bool isSelected: index === root.selectedIndex
@@ -637,7 +962,12 @@ Item {
                   readonly property color fingerColor: finger !== "" ? root.fingerColors[finger] : "transparent"
 
                   width: parent.width
-                  height: Style.space(52)
+                  // Maximized rows grow to use the card, but never so much
+                  // that a long track overflows the list.
+                  height: root.maximized
+                    ? Math.max(Style.space(52), Math.min(Style.space(96),
+                        (levelFlick.height - Style.spacing.sm * (levelRepeater.count - 1)) / Math.max(1, levelRepeater.count)))
+                    : Style.space(52)
                   radius: Math.min(root.cornerRadius, 10)
                   color: isSelected ? Util.alpha(Color.accent, 0.14) : "transparent"
                   border.width: isSelected ? 1 : 0
@@ -664,7 +994,7 @@ Item {
                       text: levelRow.isUnlocked ? String(levelRow.index + 1) : "🔒"
                       color: levelRow.finger !== "" ? levelRow.fingerColor : (levelRow.entry.passed ? Color.accent : root.foreground)
                       font.family: root.uiFont
-                      font.pixelSize: Style.font.heading
+                      font.pixelSize: root.maximized ? Style.font.display : Style.font.heading
                       horizontalAlignment: Text.AlignHCenter
                     }
 
@@ -675,14 +1005,14 @@ Item {
                         text: (levelRow.entry.passed ? "✓ " : "") + I18n.t(levelRow.modelData.titleKey, root.language)
                         color: root.foreground
                         font.family: root.uiFont
-                        font.pixelSize: Style.font.body
+                        font.pixelSize: root.maximized ? Style.font.heading : Style.font.body
                         font.bold: true
                       }
                       Text {
                         text: root.levelDescription(levelRow.modelData)
                         color: Color.muted
                         font.family: root.monoFont
-                        font.pixelSize: Style.font.bodySmall
+                        font.pixelSize: root.maximized ? Style.font.body : Style.font.bodySmall
                       }
                     }
 
@@ -695,13 +1025,14 @@ Item {
                         text: I18n.t("menu.level.best", root.language, { wpm: levelRow.entry.bestWpm, acc: levelRow.entry.bestAccuracy })
                         color: Color.muted
                         font.family: root.uiFont
-                        font.pixelSize: Style.font.caption
+                        font.pixelSize: root.maximized ? Style.font.bodySmall : Style.font.caption
                         horizontalAlignment: Text.AlignRight
                         anchors.right: parent.right
                       }
                     }
                   }
                 }
+              }
               }
             }
           }
@@ -815,10 +1146,12 @@ Item {
           }
 
           Column {
+            id: lessonColumn
             anchors.fill: parent
             spacing: Style.spacing.lg
 
             Item {
+              id: lessonHeader
               width: parent.width
               height: lessonTitle.height
 
@@ -841,8 +1174,19 @@ Item {
                 onActivated: root.toggleLanguage()
               }
 
-              Text {
+              MaximizeButton {
+                id: lessonMaximizeButton
                 anchors.right: lessonLanguageButton.left
+                anchors.rightMargin: Style.spacing.lg
+                anchors.verticalCenter: lessonTitle.verticalCenter
+                maximized: root.maximized
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleMaximized()
+              }
+
+              Text {
+                anchors.right: lessonMaximizeButton.left
                 anchors.rightMargin: Style.spacing.lg
                 anchors.verticalCenter: lessonTitle.verticalCenter
                 text: I18n.t("lesson.hint", root.language)
@@ -853,6 +1197,7 @@ Item {
             }
 
             Row {
+              id: statsRow
               width: parent.width
               spacing: Style.spacing.xxl
 
@@ -877,6 +1222,7 @@ Item {
             }
 
             Rectangle {
+              id: progressBar
               width: parent.width
               height: Style.space(4)
               radius: height / 2
@@ -891,8 +1237,9 @@ Item {
             }
 
             Rectangle {
+              id: drillText
               width: parent.width
-              height: Style.space(150)
+              height: root.maximized ? Style.space(300) : Style.space(150)
               radius: Math.min(root.cornerRadius, 10)
               color: Util.alpha(root.foreground, 0.04)
               border.width: 1
@@ -906,15 +1253,16 @@ Item {
                 wrapMode: Text.WordWrap
                 verticalAlignment: Text.AlignVCenter
                 font.family: root.monoFont
-                font.pixelSize: Style.font.heading
+                font.pixelSize: root.maximized ? Style.font.display : Style.font.heading
                 lineHeight: 1.5
               }
             }
 
-            Item { width: 1; height: Style.spacing.md }
+            Item { id: lessonSpacer; width: 1; height: Style.spacing.md }
 
             // Finger Gym banner: which finger(s) to use for this drill.
             Row {
+              id: fingerBanner
               anchors.horizontalCenter: parent.horizontalCenter
               spacing: Style.spacing.sm
               visible: root.currentTrack === "finger"
@@ -973,12 +1321,177 @@ Item {
               }
             }
 
-            Keyboard {
-              anchors.horizontalCenter: parent.horizontalCenter
-              nextChar: root.nextChar
-              keyFingerMap: root.currentTrack === "finger" ? root.keyFingerMap : ({})
-              fingerColors: root.fingerColors
-              activeFinger: root.currentTrack === "finger" ? root.currentFinger : ""
+            // The keyboard takes whatever space the rest of the lesson
+            // leaves, so it can grow with the trainer instead of sitting at
+            // a fixed size in the middle of a bigger card.
+            Item {
+              id: keyboardArea
+              width: parent.width
+              height: Math.max(0, lessonColumn.height
+                - lessonHeader.height - statsRow.height - progressBar.height
+                - drillText.height - lessonSpacer.height - fingerBanner.height
+                - Style.spacing.lg * 6)
+
+              Keyboard {
+                anchors.fill: parent
+                maxKeySize: root.maximized ? Style.space(92) : Style.space(34)
+                nextChar: root.nextChar
+                keyFingerMap: root.currentTrack === "finger" ? root.keyFingerMap : ({})
+                fingerColors: root.fingerColors
+                activeFinger: root.currentTrack === "finger" ? root.currentFinger : ""
+              }
+            }
+          }
+        }
+
+        // ================= FALLING GAME SCREEN =================
+        Item {
+          id: gameScreen
+          anchors.fill: parent
+          visible: root.screen === "game"
+
+          Item {
+            id: gameKeyCatcher
+            anchors.fill: parent
+            focus: root.screen === "game"
+
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) {
+              if (event.key === Qt.Key_Escape) { root.backToMenu(); event.accepted = true }
+              else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
+                root.handleFallKey(event.text)
+                event.accepted = true
+              }
+            }
+          }
+
+          Column {
+            id: gameColumn
+            anchors.fill: parent
+            spacing: Style.spacing.lg
+
+            Item {
+              id: gameHeader
+              width: parent.width
+              height: gameTitle.height
+
+              Text {
+                id: gameTitle
+                anchors.left: parent.left
+                text: root.currentLevel ? ("⬇ " + (root.currentLevelIndex + 1) + ". " + I18n.t(root.currentLevel.titleKey, root.language)) : ""
+                color: root.foreground
+                font.family: root.uiFont
+                font.pixelSize: Style.font.heading
+                font.bold: true
+              }
+
+              LanguageButton {
+                id: gameLanguageButton
+                anchors.right: parent.right
+                anchors.verticalCenter: gameTitle.verticalCenter
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleLanguage()
+              }
+
+              MaximizeButton {
+                id: gameMaximizeButton
+                anchors.right: gameLanguageButton.left
+                anchors.rightMargin: Style.spacing.lg
+                anchors.verticalCenter: gameTitle.verticalCenter
+                maximized: root.maximized
+                language: root.language
+                foreground: root.foreground
+                onActivated: root.toggleMaximized()
+              }
+            }
+
+            Row {
+              id: gameHud
+              width: parent.width
+              spacing: Style.spacing.xxl
+
+              Text {
+                text: I18n.t("lesson.fall.lives", root.language, { n: root.fallLives })
+                color: root.fallLives > 0 ? root.foreground : Color.urgent
+                font.family: root.monoFont
+                font.pixelSize: Style.font.body
+              }
+              Text {
+                text: I18n.t("lesson.fall.hits", root.language, { hits: root.fallHits, total: root.fallTotal })
+                color: root.foreground
+                font.family: root.monoFont
+                font.pixelSize: Style.font.body
+              }
+              Text {
+                text: I18n.t("lesson.fall.hitRate", root.language, { rate: root.fallHitRate })
+                color: root.foreground
+                font.family: root.monoFont
+                font.pixelSize: Style.font.body
+              }
+              Text {
+                text: I18n.t("lesson.time", root.language, { s: Math.floor(root.elapsedMs / 1000) })
+                color: Color.muted
+                font.family: root.monoFont
+                font.pixelSize: Style.font.body
+              }
+              Text {
+                text: root.fallFlash
+                color: root.fallFlashGood ? Color.accent : Color.urgent
+                font.family: root.uiFont
+                font.pixelSize: Style.font.body
+              }
+            }
+
+            Rectangle {
+              id: gameProgressBar
+              width: parent.width
+              height: Style.space(4)
+              radius: height / 2
+              color: Util.alpha(root.foreground, 0.1)
+              Rectangle {
+                width: parent.width * (root.fallTotal > 0 ? root.fallHits / root.fallTotal : 0)
+                height: parent.height
+                radius: height / 2
+                color: Color.accent
+                Behavior on width { NumberAnimation { duration: 120 } }
+              }
+            }
+
+            // The play field: characters fall from the top of the field to
+            // the bottom, each from its own spot across the width, and the
+            // learner knocks them out by typing their keys. A letter that
+            // has fallen halfway lets the next one start, so the field keeps
+            // moving. The fall accelerates, so the bottom of the field is the
+            // urgent part. FallField.qml owns the letters and the blasts.
+            FallField {
+              id: fallField
+              width: parent.width
+              height: Math.max(Style.space(160), (gameColumn.height - gameHeader.height - gameHud.height
+                - gameProgressBar.height - Style.spacing.lg * 5) * 0.72)
+              foreground: root.foreground
+              glyphFont: root.monoFont
+              cardRadius: root.cornerRadius
+              fallMs: root.currentLevel && root.currentLevel.fallMs ? root.currentLevel.fallMs : 4000
+
+              onLanded: function(planIndex) { root.handleFallLanded(planIndex) }
+              onHalfway: function(planIndex) { root.handleFallMidpoint(planIndex) }
+              onExploded: explosionSound.play()
+            }
+
+            Item {
+              id: gameKeyboardArea
+              width: parent.width
+              height: Math.max(0, gameColumn.height - gameHeader.height - gameHud.height
+                - gameProgressBar.height - fallField.height - Style.spacing.lg * 5)
+
+              Keyboard {
+                anchors.fill: parent
+                maxKeySize: Style.space(30)
+                // The game asks the learner to find the key themselves, so
+                // the keyboard does not point the next one out.
+                nextChar: ""
+              }
             }
           }
         }
@@ -1004,7 +1517,7 @@ Item {
           Column {
             anchors.centerIn: parent
             spacing: Style.spacing.lg
-            width: Math.min(parent.width * 0.8, Style.space(560))
+            width: Math.min(parent.width * 0.8, Style.space(640))
 
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
@@ -1015,17 +1528,58 @@ Item {
               font.bold: true
             }
 
+            // The falling game is judged on the share of characters that
+            // were hit, so it says how that share compares with the bar — and
+            // why the round failed when the learner ran out of lives.
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              visible: root.lastResult && root.lastResult.track === "fall" && root.currentLevel
+              text: I18n.t(root.lastResult && root.lastResult.aborted ? "results.outOfLives" : "results.hitRateNeed", root.language, {
+                rate: root.lastResult ? root.lastResult.accuracy : 0,
+                need: root.currentLevel ? root.currentLevel.passAccuracy : 0
+              })
+              color: Color.muted
+              font.family: root.uiFont
+              font.pixelSize: Style.font.bodySmall
+            }
+
             Row {
               anchors.horizontalCenter: parent.horizontalCenter
               spacing: Style.spacing.xxxl
 
+              // The share of a drill's text that was typed right.
               Column {
                 spacing: Style.spacing.xs
+                visible: !root.lastResult || root.lastResult.track !== "fall"
                 Text { text: root.lastResult ? root.lastResult.accuracy + "%" : ""; color: root.foreground; font.family: root.monoFont; font.pixelSize: Style.font.display; anchors.horizontalCenter: parent.horizontalCenter }
                 Text { text: I18n.t("results.accuracy", root.language); color: Color.muted; font.family: root.uiFont; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
               }
+              // The falling game reports in characters: how many of the
+              // planned characters were hit.
               Column {
                 spacing: Style.spacing.xs
+                visible: root.lastResult && root.lastResult.hits !== undefined
+                Text {
+                  text: root.lastResult && root.lastResult.hits !== undefined ? root.lastResult.hits + "/" + root.lastResult.total : ""
+                  color: root.foreground; font.family: root.monoFont; font.pixelSize: Style.font.display; anchors.horizontalCenter: parent.horizontalCenter
+                }
+                Text { text: I18n.t("results.hits", root.language); color: Color.muted; font.family: root.uiFont; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
+              }
+              // How many characters reached the bottom of the field.
+              Column {
+                spacing: Style.spacing.xs
+                visible: root.lastResult && root.lastResult.missed !== undefined
+                Text {
+                  text: root.lastResult && root.lastResult.missed !== undefined ? root.lastResult.missed : ""
+                  color: root.foreground; font.family: root.monoFont; font.pixelSize: Style.font.display; anchors.horizontalCenter: parent.horizontalCenter
+                }
+                Text { text: I18n.t("results.missed", root.language); color: Color.muted; font.family: root.uiFont; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
+              }
+              // Words per minute: the drills are judged on speed, the
+              // falling game is not.
+              Column {
+                spacing: Style.spacing.xs
+                visible: !root.lastResult || root.lastResult.track !== "fall"
                 Text { text: root.lastResult ? root.lastResult.wpm : ""; color: root.foreground; font.family: root.monoFont; font.pixelSize: Style.font.display; anchors.horizontalCenter: parent.horizontalCenter }
                 Text { text: I18n.t("results.wpm", root.language); color: Color.muted; font.family: root.uiFont; font.pixelSize: Style.font.caption; anchors.horizontalCenter: parent.horizontalCenter }
               }
