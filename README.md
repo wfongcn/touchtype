@@ -60,18 +60,30 @@ whatever Omarchy theme you have active.
 omarchy plugin add https://github.com/wfongcn/touchtype.git --enable
 ```
 
-That's it — this clones the plugin into `~/.config/omarchy/plugins/touchtype`,
-registers it with the running shell, and places the bar indicator for you
-(you'll be prompted to pick left/center/right, or pass
-`--enable` non-interactively and move it later with
-`omarchy bar move touchtype --section right`).
+That's it — this clones the plugin into
+`~/.config/omarchy/plugins/io.github.wfongcn.touchtype`, registers it with the
+running shell, and places the bar indicator for you (you'll be prompted to pick
+left/center/right, or pass `--enable` non-interactively and move it later with
+`omarchy bar move io.github.wfongcn.touchtype --section right`).
 
 If you'd rather install manually (e.g. for local development):
 
 ```bash
-git clone https://github.com/wfongcn/touchtype.git ~/.config/omarchy/plugins/touchtype
-omarchy plugin enable touchtype --section right
+git clone https://github.com/wfongcn/touchtype.git ~/.config/omarchy/plugins/io.github.wfongcn.touchtype
+omarchy plugin enable io.github.wfongcn.touchtype --section right
 ```
+
+### Requirements and dependencies
+
+- Omarchy (Quattro) with the Quickshell-based `omarchy-shell` — the plugin is a
+  shell plugin and does not run standalone.
+- Nothing else: no npm packages, no system packages, no network calls, no
+  external services. The sound effects are synthesised in JavaScript and
+  written to `$XDG_RUNTIME_DIR`, so the only tools involved are `bash` and
+  `base64` from coreutils, and playback uses Qt Multimedia (already part of
+  the shell).
+- Node.js is only needed to run the test suite (`npm test`); the plugin itself
+  never needs Node.
 
 ### Optional: menu shortcuts
 
@@ -83,7 +95,7 @@ you):
 
 ```jsonc
 "trigger.touchtype": {"icon":"⌨","label":"Touch Type","aliases":["touchtype","typing"]},
-"trigger.touchtype.open": {"icon":"⌨","label":"Open trainer","action":"omarchy-shell shell toggle touchtype"},
+"trigger.touchtype.open": {"icon":"⌨","label":"Open trainer","action":"omarchy-shell shell toggle io.github.wfongcn.touchtype"},
 "trigger.touchtype.reset": {"icon":"󰭌","label":"Reset progress","action":"rm -f ~/.local/state/omarchy/touchtype-progress.json && omarchy-notification-send 'Touch Type' 'Progress reset'"}
 ```
 
@@ -91,7 +103,8 @@ The file hot-reloads on save — no restart needed.
 
 ## Usage
 
-- Click the ⌨ bar indicator, or run `omarchy-shell shell toggle touchtype`,
+- Click the ⌨ bar indicator, or run
+  `omarchy-shell shell toggle io.github.wfongcn.touchtype`,
   or (if you added the optional menu entries) use
   `Trigger → Touch Type → Open trainer`.
 - Navigate levels with `↑`/`↓` + `Enter`, number keys, or mouse click.
@@ -113,13 +126,14 @@ The file hot-reloads on save — no restart needed.
 ## Uninstall
 
 ```bash
-omarchy plugin remove touchtype
+omarchy plugin remove io.github.wfongcn.touchtype
 ```
 
 This disables the plugin, removes its bar placement, and deletes
-`~/.config/omarchy/plugins/touchtype` (a timestamped backup is kept
-automatically alongside it, e.g. `.touchtype.bak.<timestamp>`, in case you
-want to restore it).
+`~/.config/omarchy/plugins/io.github.wfongcn.touchtype` (a timestamped backup is
+kept automatically alongside it, e.g.
+`.io.github.wfongcn.touchtype.bak.<timestamp>`, in case you want to restore
+it).
 
 To also remove saved progress and the optional menu entries:
 
