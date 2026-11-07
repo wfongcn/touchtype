@@ -9,6 +9,7 @@ const scripts = [
   ["Curriculum.js", ["levels", "fingerLevels", "fallLevels", "buildDrill", "fingerForKey"]],
   ["FallGame.js", ["createSession", "nextLetter", "spawn", "registerHit", "registerMiss", "registerWrong", "isFinished", "ranOutOfLives", "keyResults"]],
   ["Sounds.js", ["explosionWav", "beepWav"]],
+  ["SoundWriter.js", ["writeCommand"]],
   ["ProgressStore.js", ["defaultProgress", "parse", "toJsonText", "recordAttempt"]],
   ["I18n.js", ["languages", "t", "normalize"]]
 ];

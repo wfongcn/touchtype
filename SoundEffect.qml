@@ -1,21 +1,25 @@
 import QtQuick
 import Quickshell.Io
 import QtMultimedia
+import "SoundWriter.js" as SoundWriter
 
 // One sound effect of the Falling Letters game. The sound is synthesised by
-// Sounds.js as a base64 WAV payload and written to the runtime directory, so
-// the plugin carries no audio files of its own. The caller passes the payload;
-// this only writes it once, points a player at it and plays it on demand.
+// Sounds.js as a base64 WAV payload and written to a private directory, so
+// the plugin carries no audio files of its own. The caller passes the
+// payload; this only writes it once, points a player at it and plays it on
+// demand.
 Item {
   id: effect
 
-  // Where the WAV file goes, and the payload that is written there.
-  property string filePath: ""
+  // The name of the sound file, and the payload that is written there.
+  property string fileName: ""
   property string payload: ""
   property real volume: 0.5
 
+  // Where the payload was written, and whether it is ready to be played.
   // False until the file has been written, so a hit before the writer
   // finishes stays silent instead of playing an empty file.
+  property string filePath: ""
   property bool ready: false
 
   function play() {
@@ -30,9 +34,14 @@ Item {
 
   Process {
     id: writer
-    command: ["bash", "-c", "mkdir -p \"$(dirname \"$1\")\" && printf %s \"$2\" | base64 -d > \"$1\"",
-      "bash", effect.filePath, effect.payload]
-    onExited: {
+    command: SoundWriter.writeCommand(effect.fileName, effect.payload)
+    stdout: StdioCollector {
+      id: collector
+      // The writer prints the path of the file it wrote.
+      onStreamFinished: effect.filePath = collector.text.trim()
+    }
+    onExited: (exitCode) => {
+      if (exitCode !== 0 || effect.filePath === "") return
       player.source = "file://" + effect.filePath
       effect.ready = true
     }
@@ -41,6 +50,6 @@ Item {
   // The sound is prepared as soon as the plugin loads, so the first letter
   // that is hit already makes a noise.
   Component.onCompleted: {
-    if (effect.filePath !== "" && effect.payload !== "") writer.running = true
+    if (effect.fileName !== "" && effect.payload !== "") writer.running = true
   }
 }

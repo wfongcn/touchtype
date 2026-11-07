@@ -233,20 +233,18 @@ Item {
 
   // ---- sounds -----------------------------------------------------------
   // The blast of a letter that was hit and the beep of a wrong key are
-  // synthesised in Sounds.js and written to the runtime directory, so the
+  // synthesised in Sounds.js and written to a private directory, so the
   // plugin carries no audio files of its own.
-  readonly property string soundDir: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/touchtype-sounds"
-
   SoundEffect {
     id: explosionSound
-    filePath: root.soundDir + "/explosion.wav"
+    fileName: "explosion.wav"
     payload: Sounds.explosionWav()
     volume: 0.55
   }
 
   SoundEffect {
     id: beepSound
-    filePath: root.soundDir + "/beep.wav"
+    fileName: "beep.wav"
     payload: Sounds.beepWav()
     volume: 0.4
   }

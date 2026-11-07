@@ -108,9 +108,9 @@ omarchy plugin enable io.github.wfongcn.touchtype --section right
   shell plugin and does not run standalone.
 - Nothing else: no npm packages, no system packages, no network calls, no
   external services. The sound effects are synthesised in JavaScript and
-  written to `$XDG_RUNTIME_DIR`, so the only tools involved are `bash` and
-  `base64` from coreutils, and playback uses Qt Multimedia (already part of
-  the shell).
+  written to a private directory, so the only tools involved are `bash` and
+  a handful of coreutils (`base64`, `mktemp`, `mkdir`, `chmod`, `mv`, `rm`,
+  `id`), and playback uses Qt Multimedia (already part of the shell).
 - Node.js is only needed to run the test suite (`npm test`); the plugin itself
   never needs Node.
 
@@ -180,12 +180,13 @@ rm -f ~/.local/state/omarchy/touchtype-progress.json
 | `TouchType.qml` | Main overlay: menu/lesson/results screens, state machine, persistence. |
 | `Keyboard.qml` | On-screen QWERTY keyboard visual, theme-derived colors. |
 | `FallField.qml` | Play field of the falling game: the letters, their fall and the blast of a hit. |
-| `SoundEffect.qml` | One synthesised sound effect, written to the runtime directory and played on demand. |
+| `SoundEffect.qml` | One synthesised sound effect, written to a private directory and played on demand. |
 | `BarWidget.qml` | Compact bar indicator (level + streak). |
 | `Corpus.js` | Word/sentence/punctuation data banks. |
 | `Curriculum.js` | 10-level classic curriculum + 6-level Finger Gym + 10-level Falling Letters definitions, finger key maps, drill-text generators. |
 | `FallGame.js` | Rules of the Falling Letters game: planned characters, hits, misses, lives, per-key statistics. |
 | `Sounds.js` | The sounds of the falling game, synthesised as WAV files: the blast of a hit and the beep of a wrong key. |
+| `SoundWriter.js` | Where the sounds land on disk: a private directory, written without ever following a symlink. |
 | `ProgressStore.js` | Progress persistence, accuracy/WPM/streak calculators. |
 | `I18n.js` | Translation catalog (English + Simplified Chinese) and key resolution. |
 | `LanguageButton.qml` | Header control that switches the interface language. |
