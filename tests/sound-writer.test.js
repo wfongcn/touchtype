@@ -135,9 +135,14 @@ test("a directory owned by another account is not used", (t) => {
   const base = subuidBase();
   if (base === null) return t.skip("no subuid range is available");
   const mapping = ["-r", `--map-users=1:${base}:1`, `--map-groups=1:${base}:1`];
-  if (spawnSync("unshare", [...mapping, "id", "-u"], { encoding: "utf8" }).status !== 0) {
-    return t.skip("user namespaces are not available");
-  }
+  // The namespace has to let us switch accounts, not merely exist: some
+  // sandboxes create one but refuse the switch.
+  const probe = spawnSync(
+    "unshare",
+    [...mapping, "bash", "-c", "setpriv --reuid=1 --regid=1 --clear-groups id -u"],
+    { encoding: "utf8" }
+  );
+  if (probe.status !== 0) return t.skip("cannot act as a second account in a user namespace");
 
   // The other account has to be able to reach the runtime directory, so
   // this sandbox lives in the shared temporary directory and can be
