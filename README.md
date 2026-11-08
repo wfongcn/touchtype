@@ -70,6 +70,12 @@ before they land:
 
 ![Falling Letters](docs/screenshots/05-falling-letters.png)
 
+A character falls towards the bottom, and a hit explodes it:
+
+![Falling Letters — falling character](docs/screenshots/09-falling-letters-falling.png)
+
+![Falling Letters — hit](docs/screenshots/10-falling-letters-hit.png)
+
 The results screen reports the weakest keys as a heatmap:
 
 ![Results](docs/screenshots/06-results.png)
